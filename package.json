@@ -1,0 +1,11 @@
+{
+    "name": "fermata",
+    "version": "0.1.0",
+    "homepage": "https://github.com/andyet/node-fermata",
+    "repository":{"type":"git", "url":"https://github.com/andyet/node-fermata.git"},
+    "author": {"name":"&yet, LLC", "url":"http://andyet.net"},
+    "contributors": [{"name":"Nathan Vander Wilt", "email": "nate@andyet.net", "url":"http://cloudcartography.com"}],
+    "description": "Succinct REST client.",
+    "licenses": [{"type": "MIT", "url": "https://github.com/andyet/node-fermata/raw/master/README.md"}],
+    "main": "fermata"
+}
