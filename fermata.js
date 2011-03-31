@@ -47,11 +47,62 @@ var path = require('path'),
     https = require('https'),
     http = require('http');
 
+/*
+var Proxy;
+try {
+    Proxy = require('node-proxy');
+} catch (e) {}
+*/
+
 function extend(target, source) {
     for (key in source) {
         target[key] = source[key];
     };
     return target;
+}
+
+function makeWrapper(site, pathArray, query) {
+    // TODO: make as Proxy if available
+    return function () {
+        if (arguments.length === 0) {
+            return site.url(pathArray, query);
+        } else if (arguments.length === 1 && typeof(arguments[0]) === 'function') {
+            return startRequest(site, pathArray, query, arguments[0], 'GET', {}, null);
+        } else if (arguments.length === 1 && typeof(arguments[0]) === 'object') {
+            var extendedQuery = extend(extend({}, query), arguments[0]);
+            return makeWrapper(site, pathArray, extendedQuery);
+        } else if (arguments.length === 2 && typeof(arguments[1]) === 'function') {
+            return startRequest(site, pathArray, query, arguments[1], 'PUT', {}, arguments[0]);
+        } else if (typeof(arguments[0]) !== 'function') {
+            var component;
+            if (arguments[1]) {
+                component = '' + arguments[0];
+            } else {
+                component = encodeURIComponent(arguments[0]);
+            };
+            var extendedPathArray = pathArray.concat(component);
+            return makeWrapper(site, extendedPathArray, query);
+        }
+    };
+}
+
+function startRequest(site, pathArray, query, callback, method, headers, data) {
+    process.nextTick(function () {
+        site.request(method, data, pathArray, query, callback, headers);
+    });
+    
+    // TODO: make as Proxy if available
+    return function () {
+        if (typeof(arguments[0]) === 'object') {
+            extend(headers, arguments[0]);
+            return arguments.callee;
+        } else if (typeof(arguments[0]) === 'string') {
+            method = arguments[0];
+            return function (setData) {
+                data = setData;
+            };
+        }
+    };
 }
 
 function Site(options) {
@@ -91,10 +142,10 @@ Site.prototype._url = function (rel_path, query) {
         query = "?" + query;
     }
     return path.join(this.base_path, rel_path) + query;
-}
+};
 Site.prototype.url = function () {
     if (!arguments.length) {
-        // TODO: return URL wrapper
+        return makeWrapper(this, [], {});
     } else {
         return url.format({
             protocol: this.url_parts.protocol,
