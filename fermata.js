@@ -53,7 +53,7 @@ URL wrapper:
 
 Request object:
 
-* - automatically begins on next tick
+* \- automatically begins on next tick
 * `(object)` - override headers
 * `(string)` - overridden method function
 * `[string] = any` - method function, optionally assign request body
@@ -182,6 +182,17 @@ Site.prototype._url = function (rel_path, query) {
     rel_path = path.resolve('/', rel_path);
     
     var query = extend(extend({}, this.default_query), arguments[1]);
+    Object.keys(query).forEach(function (key) {
+        if (key[0] !== '$') return;
+        
+        var realKey = key.slice(1);
+        if (key[1] !== '$') {
+            query[realKey] = JSON.stringify(query[key]);
+        } else {
+            query[realKey] = query[key];
+        }
+        delete query[key];
+    });
     query = qs.stringify(query);
     if (query) {
         query = "?" + query;
