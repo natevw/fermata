@@ -62,7 +62,7 @@ Request object:
 ## License ##
 
 Written by Nathan Vander Wilt.
-Copyright © 2011 by &yet, LLC. Released under the terms of the MIT License:
+Copyright Â© 2011 by &yet, LLC. Released under the terms of the MIT License:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
