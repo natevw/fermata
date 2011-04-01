@@ -1,58 +1,71 @@
 /*
-var db = new fermata.Site({base_url:"http://localhost:5984/db"});
 
-var app = db._design.world;
-app['webgl.html'](function (code, value) {});
+## Example usage ##
 
-var stale = s._design.app._view({stale:'ok'})
-stale.by_date({limit: 10})(function () {})
-stale.by_date({limit: 10})(function () {}).method = body;
 
-db[doc_id](function(code, value) {}).put = {};
+Basic setup and GET request:
 
-url(cb);     // GET
-url(query)(cb).method = body;
+    var server = new fermata.Site({base_url:"http://localhost:5984/"});
+    var db = server.url().dev;
+    var views = db._design.glob._view;
+    views['by_date']({$startkey: [2010], reduce:false, limit:2})(function (status, result) { console.log(status, result); });
+    // 200 with a few items
 
-url(cb).post = data;
-url(cb).post(data);
-url(cb)({'Accept':'text/plain'}).get()
 
+Storing query parameters, getting raw URL:
+
+    var stale = views({stale:'ok', reduce:false});
+    stale.by_date({limit: 10})();
+    // "http://localhost:5984/dev/_design/glob/_view/by_date?stale=ok&reduce=false&limit=10"
+
+POST request, assigning data:
+
+    var doc = {_id:"example", content:42};
+    db(function(code, value) { console.log(code); doc._rev = value.rev; }).post = doc;
+    // 201 once doc has been added to db
+
+PUT request shortcut:
+
+    doc.content = 43;
+    db[doc._id](doc, function(code, value) { console.log(code); })
+    // 201 if we waited for post above to complete
+
+
+## Documentation ##
 
 Site:
-`new Site({base_url, default_headers, stringify, parse, request})`
-`.url()` - URL wrapper
-`.url(path[, query])` - absolute URL as string
-`.stringify(obj)` - convert object to string/buffer
-`.parse(string)` - convert string/buffer to object
-`.request(method, obj, url, cb, headers)` - perform HTTP request
+
+* `new Site({base_url, base_path, default_headers, stringify, parse, request})`
+* `.url()` - URL wrapper
+* `.url(path[, query])` - absolute URL as string
+* `.stringify(obj)` - convert object to string/buffer
+* `.parse(string)` - convert string/buffer to object
+* `.request(method, obj, url, cb, headers)` - perform HTTP request
 
 URL wrapper:
-`()` - absolute URL as string
-`(function)` - request targetting callback (GET by default)
-`(object, function)` - request (PUT given data by default)
-`(object)` - override query parameters
-`(string/number[, bool])` - extend URL (opt: without encoding)
-`[string]` - extend URL (with encoding)
+
+* `()` - absolute URL as string
+* `(function)` - request targetting callback (GET by default)
+* `(object, function)` - request (PUT given data by default)
+* `(object)` - override query parameters
+* `(string/number[, bool])` - extend URL (opt: without encoding)
+* `[string]` - extend URL (with encoding)
 
 Request object:
-- automatically begins on next tick
-`(object)` - override headers
-`(string)` - overridden method function
-`[string] = any` - method function, optionally assign request body
+
+* - automatically begins on next tick
+* `(object)` - override headers
+* `(string)` - overridden method function
+* `[string] = any` - method function, optionally assign request body
+
 */
 
+var Proxy = require('node-proxy');
 var path = require('path'),
     url = require('url'),
     qs = require('querystring'),
     https = require('https'),
     http = require('http');
-
-/*
-var Proxy;
-try {
-    Proxy = require('node-proxy');
-} catch (e) {}
-*/
 
 function extend(target, source) {
     for (key in source) {
@@ -61,9 +74,41 @@ function extend(target, source) {
     return target;
 }
 
+function fermatable(impl) {
+    // for some reason node/node-proxy calls "inspect" and "constructor" a ton without provocation...
+    var PASSTHROUGH = {inspect:true, constructor:true};
+    return Proxy.createFunction({
+        // NOTE: node-proxy has a different set of required handlers than harmony:proxies proposal
+        getOwnPropertyDescriptor: function (name) {
+            var desc = Object.getOwnPropertyDescriptor(impl, name);
+            if (desc) { desc.configurable = true; }
+            return desc;
+        },
+        enumerate: function () { return []; },
+        delete: function () { return false; },
+        fix: function () {},
+        
+        get: function (target, name) {
+            if (PASSTHROUGH[name]) {
+                return impl[name];
+            } else {
+                return impl(name);
+            }
+        },
+        
+        set: function (target, name, val) {
+            if (PASSTHROUGH[name]) {
+                impl[name] = val;
+            } else {
+                impl(name)(val);
+            }
+        }
+    }, impl);
+}
+
+var counter = 0;
 function makeWrapper(site, pathArray, query) {
-    // TODO: make as Proxy if available
-    return function () {
+    return fermatable(function () {
         if (arguments.length === 0) {
             return site.url(pathArray, query);
         } else if (arguments.length === 1 && typeof(arguments[0]) === 'function') {
@@ -83,7 +128,7 @@ function makeWrapper(site, pathArray, query) {
             var extendedPathArray = pathArray.concat(component);
             return makeWrapper(site, extendedPathArray, query);
         }
-    };
+    });
 }
 
 function startRequest(site, pathArray, query, callback, method, headers, data) {
@@ -91,18 +136,18 @@ function startRequest(site, pathArray, query, callback, method, headers, data) {
         site.request(method, data, pathArray, query, callback, headers);
     });
     
-    // TODO: make as Proxy if available
-    return function () {
+    var headerify;
+    return headerify = fermatable(function () {
         if (typeof(arguments[0]) === 'object') {
             extend(headers, arguments[0]);
-            return arguments.callee;
+            return headerify;
         } else if (typeof(arguments[0]) === 'string') {
             method = arguments[0];
             return function (setData) {
                 data = setData;
             };
         }
-    };
+    });
 }
 
 function Site(options) {
