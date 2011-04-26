@@ -223,4 +223,10 @@ Site.prototype.request = function (method, obj, rel_path, query, callback, heade
     });
 };
 
-exports.Site = Site;
+// deprecate clunky old interface, make Fermata simply be the URL proxy
+exports.site = function (url, options) {
+    var options = extend({}, options);
+    options.base_url = url;
+    var site = new Site(options);
+    return site.url();
+}
