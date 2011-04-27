@@ -38,7 +38,7 @@ This does a `GET` on `http://youraccount.example.com/api/v4/frobbles?perPage=10&
 
 ### PUT ###
 
-So the documentation says "To teach a Whoozit new tricks, PUT data to /v3/whoozits/<ID>/repertoire":
+So the documentation says "To teach a Whoozit new tricks, PUT data to /v3/whoozits/&lt;ID&gt;/repertoire":
 
     var api = fermata.site("http://youraccount.example.com/api");
     api.v3.whoozits[myFavoriteWhoozit.api_id].repertoire({ tricks: [1,2,3,4] }, function (status, result) {
@@ -61,6 +61,9 @@ Voilà!
 
 
 ## Complete documentation ##
+
+*NOTE*: at version 0.2, this API is still [undergoing refinement](https://github.com/andyet/fermata/blob/master/ROADMAP.md).
+
 
 ### URL proxy ###
 
