@@ -48,8 +48,8 @@ Basic architecture:
     wrapper.method(headers, object, callback)
     ----
     request({method, path, query, headers, object})		// converts object to buffer, adds default headers, adds OAuth sig...
-      transport({secure, host, port}, {method, resource, headers}, buffer)		// also pluggable (default to http.request/XHR)
-    response(status, headers, buffer)			// checks status for error, converts buffer to object
+      transport({method, url, headers}, data)		// also pluggable (default to http.request/XHR)
+    response(status, headers, data)			// checks status for error, converts buffer to object
     ----
     callback(error, object)
 

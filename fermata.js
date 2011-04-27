@@ -24,209 +24,190 @@ THE SOFTWARE.
 */
 
 var Proxy = require('node-proxy');
-var path = require('path'),
-    url = require('url'),
-    qs = require('querystring'),
-    https = require('https'),
-    http = require('http');
 
 function extend(target, source) {
     for (key in source) {
         target[key] = source[key];
-    };
+    }
     return target;
 }
 
-function fermatable(impl) {
-    // for some reason node/node-proxy calls "inspect" and "constructor" a ton without provocation...
-    var PASSTHROUGH = {inspect:true, constructor:true};
-    return Proxy.createFunction({
+function wrapTheWrapper(impl) {
+    return (Proxy) ? Proxy.createFunction({
         // NOTE: node-proxy has a different set of required handlers than harmony:proxies proposal
-        getOwnPropertyDescriptor: function (name) {
-            var desc = Object.getOwnPropertyDescriptor(impl, name);
-            if (desc) { desc.configurable = true; }
-            return desc;
-        },
+        getOwnPropertyDescriptor: function (name) {},
         enumerate: function () { return []; },
         delete: function () { return false; },
         fix: function () {},
+        set: function (target, name, val) {},
         
         get: function (target, name) {
-            if (PASSTHROUGH[name]) {
-                return impl[name];
-            } else {
-                return impl(name);
-            }
-        },
-        
-        set: function (target, name, val) {
-            if (PASSTHROUGH[name]) {
-                impl[name] = val;
-            } else {
-                impl(name)(val);
-            }
+            return impl(name);
         }
-    }, impl);
-}
-
-var counter = 0;
-function makeWrapper(site, pathArray, query) {
-    return fermatable(function () {
-        if (arguments.length === 0) {
-            return site.url(pathArray, query);
-        } else if (arguments.length === 1 && typeof(arguments[0]) === 'function') {
-            return startRequest(site, pathArray, query, arguments[0], 'GET', {}, null);
-        } else if (arguments.length === 1 && typeof(arguments[0]) === 'object') {
-            var extendedQuery = extend(extend({}, query), arguments[0]);
-            return makeWrapper(site, pathArray, extendedQuery);
-        } else if (arguments.length === 2 && typeof(arguments[1]) === 'function') {
-            return startRequest(site, pathArray, query, arguments[1], 'PUT', {}, arguments[0]);
-        } else if (typeof(arguments[0]) !== 'function') {
-            var component;
-            if (arguments[1]) {
-                component = '' + arguments[0];
-            } else {
-                component = encodeURIComponent(arguments[0]);
-            };
-            var extendedPathArray = pathArray.concat(component);
-            return makeWrapper(site, extendedPathArray, query);
-        }
+    }, impl) : extend(impl, {
+        get: function () { impl('get').call(impl, arguments); },
+        put: function () { impl('put').call(impl, arguments); },
+        post: function () { impl('post').call(impl, arguments); },
+        delete: function () { impl('delete').call(impl, arguments); }
     });
 }
 
-function startRequest(site, pathArray, query, callback, method, headers, data) {
-    process.nextTick(function () {
-        site.request(method, data, pathArray, query, callback, headers);
-    });
-    
-    var headerify;
-    return headerify = fermatable(function () {
-        if (typeof(arguments[0]) === 'object') {
-            extend(headers, arguments[0]);
-            return headerify;
-        } else if (typeof(arguments[0]) === 'string') {
-            method = arguments[0];
-            return function (setData) {
-                data = setData;
-            };
-        }
-    });
-}
-
-function Site(options) {
-    extend(this, options);
-    
-    if (this.base_path && this.base_path.join) {
-        this.base_path = this.base_path.join('/');
-    }
-    
-    if (this.base_url) {
-        this.url_parts = url.parse(this.base_url, true);
-        if (this.url_parts.auth) {
-            var auth = 'Basic ' + new Buffer(this.url_parts.auth).toString('base64');
-            this.default_headers || (this.default_headers = {});
-            extend(this.default_headers, {'Authorization': auth});
-        }
-        if (this.url_parts.query) {
-            this.default_query || (this.default_query = {});
-            extend(this.default_query, this.url_parts.query);
-        }
-        if (this.url_parts.pathname) {
-            this.base_path = path.join(this.url_parts.pathname, this.base_path);
-        }
-    }
-    
-    this.base_path = path.resolve('/', this.base_path);
-}
-Site.prototype._url = function (rel_path, query) {
-    if (rel_path.join) {
-        rel_path = rel_path.join('/');
-    }
-    rel_path = path.resolve('/', rel_path);
-    
-    var query = extend(extend({}, this.default_query), arguments[1]);
-    Object.keys(query).forEach(function (key) {
-        if (key[0] !== '$') return;
-        
-        var realKey = key.slice(1);
-        if (key[1] !== '$') {
-            query[realKey] = JSON.stringify(query[key]);
+function makeWrapper(site, transport, path, query) {
+    return wrapTheWrapper(function () {
+        var args = [].splice.call(arguments, 0),
+            lastArg = typeof(args[args.length-1]);
+        if (lastArg === 'undefined') {
+            return site.url(path, query);
+        } else if (lastArg === 'function') {
+            var callback = args.pop(),
+                data = args.pop() || null,
+                headers = args.pop() || {},
+                method = path.pop();
+            return site.request({method:method, path:path, query:query, headers:headers, data:data, args:args}, transport, callback);
         } else {
-            query[realKey] = query[key];
+            var query2 = (lastArg === 'object') ? site.combine(query, args.pop()) : query,
+                path2 = (args.length) ? site.join(path, args) : path;
+            return makeWrapper(site, transport, path2, query2);
         }
-        delete query[key];
     });
-    query = qs.stringify(query);
-    if (query) {
-        query = "?" + query;
+}
+
+
+function Site(config) {
+    this.base = config.url;
+    if (this.base.slice(-1) !== '/') {
+        this.base += '/';
     }
-    return path.join(this.base_path, rel_path) + query;
-};
-Site.prototype.url = function () {
-    if (!arguments.length) {
-        return makeWrapper(this, [], {});
-    } else {
-        return url.format({
-            protocol: this.url_parts.protocol,
-            hostname: this.url_parts.hostname,
-            port: this.url_parts.port,
-            pathname: this._url(arguments[0], arguments[1])
-        });
+    if (config.user) {
+        this.basicAuth = config.user + ':' + (config.password || '');
     }
+}
+
+Site.prototype.combine = function (query, subquery) {
+    return extend(extend({}, query), subquery);
 };
-Site.prototype.stringify = JSON.stringify;
-Site.prototype.parse = JSON.parse;
-Site.prototype.request = function (method, obj, rel_path, query, callback, headers) {
-    method = method.toUpperCase();
-    headers = extend(extend({
+Site.prototype.join = function (path, subpath) {
+    return path.concat(subpath);
+};
+Site.prototype.url = function (path, query) {
+    var p = path.map(function (c) {
+        return (c.join) ? c.join('/') : encodeURIComponent(c);
+    }).join('/');
+    var q = Object.keys(query).map(function (k) {
+        var v = query[k];
+        if (k[0] === '$') {
+            k = k.slice(1);
+            v = JSON.stringify(v);
+        }
+        return ((v && v.map) ? v : [v]).map(function (v1) {
+            return encodeURIComponent(k) + ((v1 !== null) ? '=' + encodeURIComponent(v1) : '');
+        }).join('&');
+    }).join('&');
+    return this.base + p + ((q) ? '?' + q : '');
+};
+
+Site.prototype.request = function (info, transport, callback) {
+    //console.log("Site.request", info);
+    var data = JSON.stringify(info.data);
+    var req = {
+        responseType: 'text', // vs. 'bytes' (Buffer in Node, UInt8Array in supporting DOM, Array otherwise)
+        method: info.method,
+        url: this.url(info.path, info.query),
+        headers: {}
+    };
+    extend(req.headers, {
         'Content-Type': "application/json",
         'Accept': "application/json"
-    }, this.default_headers), headers);
-    
-    var secure = (this.url_parts.protocol != 'http:');
-    var req = ((secure) ? https : http).request({
-        host: this.url_parts.hostname,
-        port: this.url_parts.port,
-        method: method,
-        path: this._url(rel_path, query),
-        headers: headers
     });
+    extend(req.headers, info.headers);
+    req.basicAuth = this.basicAuth;
     
-    if (obj) {
-        var body = this.stringify(obj);
-        req.setHeader('Content-Length', Buffer.byteLength(body));
-        req.write(body);
+    transport.send(req, JSON.stringify(info.data), function (status, headers, buffer) {
+        var error, object;
+        try {
+            object = JSON.parse(buffer);
+        } catch (e) {
+            error = e;
+            object = buffer;
+        }
+        if (status.toFixed()[0] !== '2') {
+            error = Error("Bad status code from server: " + status);
+        }
+        return callback(error, object);
+    });
+};
+Site.prototype.request.dataType = 'text'; // vs. 'bytes'
+
+
+function Transport() {}
+
+var url = require('url'),
+    https = require('https'),
+    http = require('http');
+
+Transport.prototype.send = function (siteReq, data, callback) {
+    var url_parts = url.parse(siteReq.url),
+        secure = (url_parts.protocol !== 'http:');
+    
+    //console.log("Transport.send", siteReq, url_parts);
+    var req = {
+        host: url_parts.hostname,
+        port: url_parts.port,
+        method: siteReq.method.toUpperCase(),
+        path: url_parts.pathname + (url_parts.search || ''),
+        headers: {}
+    };
+    if (url_parts.auth) {
+        req.headers['Authorization'] = 'Basic ' + new Buffer(url_parts.auth).toString('base64');
+    }
+    if (siteReq.basicAuth) {
+        req.headers['Authorization'] = 'Basic ' + new Buffer(siteReq.basicAuth).toString('base64');
+    }
+    // copy over request headers, normalizing keys
+    Object.keys(siteReq.headers).forEach(function (k) {
+        var k_norm = k.split('-').map(function (w) {
+            return w[0].toUpperCase() + w.slice(1).toLowerCase();
+        }).join('-');
+        req.headers[k_norm] = siteReq.headers[k];
+    });
+    if (typeof(data) === 'string') {
+        data = new Buffer(data, 'utf8');
+        // TODO: follow XHR algorithm for charset replacement if Content-Type already set
+        req.headers['Content-Type'] = "text/plain;charset=UTF-8";
+    }
+    
+    req = ((secure) ? https : http).request(req);
+    if (data) {
+        req.setHeader('Content-Length', data.length);
+        req.write(data);
     } else {
         req.setHeader('Content-Length', 0);
     }
     req.end();
     
     var this_parse = this.parse;
-    req.on('error', function () {
-        callback(0, null, "Connection error");
+    req.on('error', function (e) {
+        callback(0, null, e);
     });
     req.on('response', function (res) {
-        res.setEncoding('utf8');
-        var responseText = "";
+        var responseData = new Buffer(0);
         res.on('data', function (chunk) {
-            responseText += chunk;
+            var prevChunk = responseData;
+            responseData = new Buffer(prevChunk.length + chunk.length);
+            prevChunk.copy(responseData);
+            chunk.copy(responseData, prevChunk.length);
         });
         res.on('end', function () {
-            var responseObj;
-            try {
-                responseObj = this_parse(responseText);
-            } catch (e) {
-                responseObj = null;
+            if (siteReq.responseType === 'text') {
+                // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
+                responseData = responseData.toString('utf8');
             }
-            callback(res.statusCode, responseObj, responseText);
+            callback(res.statusCode, res.headers, responseData);
         });
     });
 };
 
-// deprecate clunky old interface, make Fermata simply be the URL proxy
-exports.site = function (url, options) {
-    var options = extend({}, options);
-    options.base_url = url;
-    var site = new Site(options);
-    return site.url();
-}
+
+exports.api = function (config) {
+    return makeWrapper(new Site(config), new Transport(), [], {});
+};
