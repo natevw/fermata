@@ -19,11 +19,12 @@ assert.equal(u.path.subpath({q1:"search", q2:"term"})(), "site/path/subpath?q1=s
 assert.equal(u.path({q1:"search", q2:"term"}).subpath(), "site/path/subpath?q1=search&q2=term");
 assert.equal(u.path({q1:"old", q2:"term"}).subpath({q1:"search"})(), "site/path/subpath?q1=search&q2=term");
 
-// actual over-the-network test. (won't notice if fermata simply never calls back; whines if NON-fermata stuff is down...)
-f.api({url:"http://pdxapi.com/"}).bicycle_parking.geojson({bbox:"-122.6785969,45.5167974,-122.6763439,45.51772964", limit:5}).get(function (e, o) {
-    console.log(e, o);
+// actual over-the-network test. (whines if NON-fermata stuff is down...)
+var timeout = setTimeout(function () {
+    assert.ok(false, "Callback not called before timeout.");
+}, 2500);
+f.api({url:"http://pdxapi.com/"}).bicycle_parking.geojson({bbox:"-122.6785969,45.5167974,-122.6763439,45.51772964"}).get(function (e, o) {
+    clearTimeout(timeout);
     assert.ifError(e);
     assert.ok(o.update_seq);
-    assert.ok(o.rows.length <= 5);
 });
-
