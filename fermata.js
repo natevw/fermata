@@ -32,6 +32,10 @@ function extend(target, source) {
     return target;
 }
 
+function typeof2(o) {
+    return (Array.isArray(o)) ? 'array' : typeof(o);
+}
+
 function wrapTheWrapper(impl) {
     return (Proxy) ? Proxy.createFunction({
         // NOTE: node-proxy has a different set of required handlers than harmony:proxies proposal
@@ -55,7 +59,7 @@ function wrapTheWrapper(impl) {
 function makeWrapper(site, transport, path, query) {
     return wrapTheWrapper(function () {
         var args = [].splice.call(arguments, 0),
-            lastArg = typeof(args[args.length-1]);
+            lastArg = typeof2(args[args.length-1]);
         if (lastArg === 'undefined') {
             return site.url(path, query);
         } else if (lastArg === 'function') {

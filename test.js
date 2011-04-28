@@ -8,6 +8,12 @@ assert.equal(u(), "http://example.com/");
 assert.equal(u.folder(), "http://example.com/folder");
 assert.equal(u.folder1.folder2(), "http://example.com/folder1/folder2");
 
+u = f.api({url:"http://localhost:5984/db/"});
+assert.equal(u('_design')('app')('_view')('by_date')(), "http://localhost:5984/db/_design/app/_view/by_date");
+assert.equal(u('_design','app')(['_view/by_date'])(), "http://localhost:5984/db/_design/app/_view/by_date");
+assert.equal(u(['_design','app','_view/by_date'])(), "http://localhost:5984/db/_design/app/_view/by_date");
+assert.equal(u(['_design/app/_view/by_date'])(), "http://localhost:5984/db/_design/app/_view/by_date");
+
 u = f.api({url:"dotcom"});
 assert.equal(u({q:"search term"})(), "dotcom/?q=search%20term");
 assert.equal(u({opt:[0,1,2]})(), "dotcom/?opt=0&opt=1&opt=2");
@@ -19,9 +25,14 @@ assert.equal(u.path.subpath({q1:"search", q2:"term"})(), "site/path/subpath?q1=s
 assert.equal(u.path({q1:"search", q2:"term"}).subpath(), "site/path/subpath?q1=search&q2=term");
 assert.equal(u.path({q1:"old", q2:"term"}).subpath({q1:"search"})(), "site/path/subpath?q1=search&q2=term");
 
-// actual over-the-network test. (whines if NON-fermata stuff is down...)
+u = f.api({url:""});
+assert.equal(u('abc', 'def', {q:123})(), "/abc/def?q=123");
+assert.equal(u(['abc', 'def'], {q:123})(), "/abc/def?q=123");
+assert.equal(u(['abc', 'def', {q:123}])(), "/abc/def/[object Object]");
+
+// actual over-the-network test. (will fail if site/network is down...)
 var timeout = setTimeout(function () {
-    assert.ok(false, "Callback not called before timeout.");
+    assert.ok(false, "Request timed out.");
 }, 2500);
 f.api({url:"http://pdxapi.com/"}).bicycle_parking.geojson({bbox:"-122.6785969,45.5167974,-122.6763439,45.51772964"}).get(function (e, o) {
     clearTimeout(timeout);
