@@ -123,6 +123,11 @@ Site.prototype.request = function (info, transport, callback) {
     req.basicAuth = this.basicAuth;
     
     transport.send(req, JSON.stringify(info.data), function (status, headers, buffer) {
+        //console.log(arguments);
+        if (status === null) {
+            return callback(headers);
+        }
+        
         var error, object;
         try {
             object = JSON.parse(buffer);
@@ -136,10 +141,19 @@ Site.prototype.request = function (info, transport, callback) {
         return callback(error, object);
     });
 };
-Site.prototype.request.dataType = 'text'; // vs. 'bytes'
 
 
 function Transport() {}
+Transport.normalize = function (headers) {
+    var headers_norm = {};
+    Object.keys(headers).forEach(function (k) {
+        var k_norm = k.split('-').map(function (w) {
+            return w[0].toUpperCase() + w.slice(1).toLowerCase();
+        }).join('-');
+        headers_norm[k_norm] = headers[k];
+    });
+    return headers_norm;
+};
 
 var url = require('url'),
     https = require('https'),
@@ -163,13 +177,8 @@ Transport.prototype.send = function (siteReq, data, callback) {
     if (siteReq.basicAuth) {
         req.headers['Authorization'] = 'Basic ' + new Buffer(siteReq.basicAuth).toString('base64');
     }
-    // copy over request headers, normalizing keys
-    Object.keys(siteReq.headers).forEach(function (k) {
-        var k_norm = k.split('-').map(function (w) {
-            return w[0].toUpperCase() + w.slice(1).toLowerCase();
-        }).join('-');
-        req.headers[k_norm] = siteReq.headers[k];
-    });
+    extend(req.headers, Transport.normalize(siteReq.headers));
+    
     if (typeof(data) === 'string') {
         data = new Buffer(data, 'utf8');
         // TODO: follow XHR algorithm for charset replacement if Content-Type already set
@@ -185,9 +194,8 @@ Transport.prototype.send = function (siteReq, data, callback) {
     }
     req.end();
     
-    var this_parse = this.parse;
     req.on('error', function (e) {
-        callback(0, null, e);
+        callback(null, e);
     });
     req.on('response', function (res) {
         var responseData = new Buffer(0);
@@ -202,7 +210,7 @@ Transport.prototype.send = function (siteReq, data, callback) {
                 // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
-            callback(res.statusCode, res.headers, responseData);
+            callback(res.statusCode, Transport.normalize(res.headers), responseData);
         });
     });
 };
