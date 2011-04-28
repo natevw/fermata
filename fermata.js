@@ -180,6 +180,12 @@ Transport.prototype.send = function (siteReq, data, callback) {
         req.headers['Authorization'] = 'Basic ' + new Buffer(siteReq.basicAuth).toString('base64');
     }
     extend(req.headers, Transport.normalize(siteReq.headers));
+    if (data && req.method === 'GET' || req.method === 'HEAD') {
+        /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
+           avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
+        console.warn("Ignoring data passed to GET or HEAD request.");
+        data = null;
+    }
     
     if (typeof(data) === 'string') {
         data = new Buffer(data, 'utf8');
