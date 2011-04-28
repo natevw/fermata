@@ -60,7 +60,7 @@ function makeWrapper(site, transport, path, query) {
             return site.url(path, query);
         } else if (lastArg === 'function') {
             var callback = args.pop(),
-                data = args.pop() || null,
+                data = args.pop(),
                 headers = args.pop() || {},
                 method = path.pop();
             return site.request({method:method, path:path, query:query, headers:headers, data:data, args:args}, transport, callback);
@@ -124,7 +124,7 @@ Site.prototype.request = function (info, transport, callback) {
     extend(req.headers, info.headers);
     req.basicAuth = this.basicAuth;
     
-    transport.send(req, JSON.stringify(info.data), function (status, headers, buffer) {
+    transport.send(req, data, function (status, headers, buffer) {
         //console.log(arguments);
         if (status === null) {
             return callback(headers);
@@ -200,6 +200,7 @@ Transport.prototype.send = function (siteReq, data, callback) {
         callback(null, e);
     });
     req.on('response', function (res) {
+        //console.log("HTTP response", res);
         var responseData = new Buffer(0);
         res.on('data', function (chunk) {
             var prevChunk = responseData;
