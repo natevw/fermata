@@ -97,7 +97,9 @@ Site.prototype.url = function (path, query) {
         var v = query[k];
         if (k[0] === '$') {
             k = k.slice(1);
-            v = JSON.stringify(v);
+            if (k[0] !== '$') {
+                v = JSON.stringify(v);
+            }
         }
         return ((v && v.map) ? v : [v]).map(function (v1) {
             return encodeURIComponent(k) + ((v1 !== null) ? '=' + encodeURIComponent(v1) : '');
