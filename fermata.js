@@ -39,20 +39,20 @@ function typeof2(o) {
 function wrapTheWrapper(impl) {
     return (Proxy) ? Proxy.createFunction({
         // NOTE: node-proxy has a different set of required handlers than harmony:proxies proposal
-        getOwnPropertyDescriptor: function (name) {},
-        enumerate: function () { return []; },
-        delete: function () { return false; },
-        fix: function () {},
-        set: function (target, name, val) {},
+        'getOwnPropertyDescriptor': function (name) {},
+        'enumerate': function () { return []; },
+        'delete': function () { return false; },
+        'fix': function () {},
+        'set': function (target, name, val) {},
         
-        get: function (target, name) {
+        'get': function (target, name) {
             return impl(name);
         }
     }, impl) : extend(impl, {
-        get: function () { impl('get').call(impl, arguments); },
-        put: function () { impl('put').call(impl, arguments); },
-        post: function () { impl('post').call(impl, arguments); },
-        delete: function () { impl('delete').call(impl, arguments); }
+        'get': function () { impl('get').call(impl, arguments); },
+        'put': function () { impl('put').call(impl, arguments); },
+        'post': function () { impl('post').call(impl, arguments); },
+        'delete': function () { impl('delete').call(impl, arguments); }
     });
 }
 
