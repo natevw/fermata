@@ -73,7 +73,6 @@ fermata._wrapTheWrapper = function (impl) {
             return impl(name);
         }
     }, impl) : fermata._extend(impl, {
-        // TODO: don't apply, just return next step!
         'get': function () { impl('get').apply(null, arguments); },
         'put': function () { impl('put').apply(null, arguments); },
         'post': function () { impl('post').apply(null, arguments); },
