@@ -45,13 +45,13 @@ assert.equal(u('abc', 'def', {q:123})(), "/abc/def?q=123");
 assert.equal(u(['abc', 'def'], {q:123})(), "/abc/def?q=123");
 assert.equal(u(['abc', 'def', {q:123}])(), "/abc/def/[object Object]");
 
-// actual over-the-network test. (will fail if site/network is down...)
+// actual over-the-network test.
 var timeout = setTimeout(function () {
     assert.ok(false, "Network request timed out.");
 }, 2500);
 f.api({url:"http://pdxapi.com/"})('bicycle_parking')('geojson')({bbox:"-122.6785969,45.5167974,-122.6763439,45.51772964"}).get(function (e, o) {
     clearTimeout(timeout);
-    assert.ifError(e);
+    assert.ifError(e, "Unsuccessful request; maybe network is down or browser blocks XHR cross-origin [informational]");
     assert.ok(o.update_seq);
 });
 
