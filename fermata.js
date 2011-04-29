@@ -23,21 +23,45 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-var Proxy = require('node-proxy');
 
-function extend(target, source) {
-    for (key in source) {
+var Proxy;  // FEEEEL THE POWAH! FEEEEEEEEEEL IT!!!!
+
+var fermata = {};
+if (typeof window === 'undefined') {
+    fermata._node = {
+        url: require('url'),
+        https: require('https'),
+        http: require('http')
+    };
+    if (!Proxy) {
+        fermata._node.Proxy = require('node-proxy');
+    }
+}
+fermata._extend = function (target, source) {
+    for (var key in source) {
         target[key] = source[key];
     }
     return target;
 }
-
-function typeof2(o) {
+fermata._typeof2 = function (o) {
     return (Array.isArray(o)) ? 'array' : typeof(o);
 }
 
-function wrapTheWrapper(impl) {
-    return (Proxy) ? Proxy.createFunction({
+fermata._wrapTheWrapper = function (impl) {
+    return (Proxy || fermata._node) ? (Proxy) ? Proxy.createFunction({
+        // fundamental trap stubs - http://wiki.ecmascript.org/doku.php?id=harmony:proxies
+        'getOwnPropertyDescriptor': function (name) {},
+        'getPropertyDescriptor': function (name) {},
+        'getPropertyNames': function () { return []; },
+        'enumerate': function () { return []; },    // FF4 console likes this derived trap
+        'defineProperty': function () { return false; },
+        'delete': function () { return false; },
+        'fix': function () {},
+        
+        'get': function (target, name) {
+            return impl(name);
+        }
+    }, impl) : fermata._node.Proxy.createFunction({
         // NOTE: node-proxy has a different set of required handlers than harmony:proxies proposal
         'getOwnPropertyDescriptor': function (name) {},
         'enumerate': function () { return []; },
@@ -48,7 +72,7 @@ function wrapTheWrapper(impl) {
         'get': function (target, name) {
             return impl(name);
         }
-    }, impl) : extend(impl, {
+    }, impl) : fermata._extend(impl, {
         'get': function () { impl('get').call(impl, arguments); },
         'put': function () { impl('put').call(impl, arguments); },
         'post': function () { impl('post').call(impl, arguments); },
@@ -56,10 +80,10 @@ function wrapTheWrapper(impl) {
     });
 }
 
-function makeWrapper(site, transport, path, query) {
-    return wrapTheWrapper(function () {
+fermata._makeWrapper = function (site, transport, path, query) {
+    return fermata._wrapTheWrapper(function () {
         var args = [].splice.call(arguments, 0),
-            lastArg = typeof2(args[args.length-1]);
+            lastArg = fermata._typeof2(args[args.length-1]);
         if (lastArg === 'undefined') {
             return site.url(path, query);
         } else if (lastArg === 'function') {
@@ -71,13 +95,13 @@ function makeWrapper(site, transport, path, query) {
         } else {
             var query2 = (lastArg === 'object') ? site.combine(query, args.pop()) : query,
                 path2 = (args.length) ? site.join(path, args) : path;
-            return makeWrapper(site, transport, path2, query2);
+            return fermata._makeWrapper(site, transport, path2, query2);
         }
     });
 }
 
 
-function Site(config) {
+fermata.Site = function (config) {
     this.base = config.url;
     if (this.base.slice(-1) !== '/') {
         this.base += '/';
@@ -87,13 +111,13 @@ function Site(config) {
     }
 }
 
-Site.prototype.combine = function (query, subquery) {
-    return extend(extend({}, query), subquery);
+fermata.Site.prototype.combine = function (query, subquery) {
+    return fermata._extend(fermata._extend({}, query), subquery);
 };
-Site.prototype.join = function (path, subpath) {
+fermata.Site.prototype.join = function (path, subpath) {
     return path.concat(subpath);
 };
-Site.prototype.url = function (path, query) {
+fermata.Site.prototype.url = function (path, query) {
     var p = path.map(function (c) {
         return (c.join) ? c.join('/') : encodeURIComponent(c);
     }).join('/');
@@ -112,7 +136,7 @@ Site.prototype.url = function (path, query) {
     return this.base + p + ((q) ? '?' + q : '');
 };
 
-Site.prototype.request = function (info, transport, callback) {
+fermata.Site.prototype.request = function (info, transport, callback) {
     //console.log("Site.request", info);
     var data = JSON.stringify(info.data);
     var req = {
@@ -121,11 +145,11 @@ Site.prototype.request = function (info, transport, callback) {
         url: this.url(info.path, info.query),
         headers: {}
     };
-    extend(req.headers, {
+    fermata._extend(req.headers, {
         'Content-Type': "application/json",
         'Accept': "application/json"
     });
-    extend(req.headers, info.headers);
+    fermata._extend(req.headers, info.headers);
     req.basicAuth = this.basicAuth;
     
     transport.send(req, data, function (status, headers, buffer) {
@@ -149,8 +173,8 @@ Site.prototype.request = function (info, transport, callback) {
 };
 
 
-function Transport() {}
-Transport.normalize = function (headers) {
+fermata.Transport = function () {}
+fermata.Transport.normalize = function (headers) {
     var headers_norm = {};
     Object.keys(headers).forEach(function (k) {
         var k_norm = k.split('-').map(function (w) {
@@ -161,12 +185,8 @@ Transport.normalize = function (headers) {
     return headers_norm;
 };
 
-var url = require('url'),
-    https = require('https'),
-    http = require('http');
-
-Transport.prototype.send = function (siteReq, data, callback) {
-    var url_parts = url.parse(siteReq.url),
+fermata.Transport.prototype.send = function (siteReq, data, callback) {
+    var url_parts = fermata._node.url.parse(siteReq.url),
         secure = (url_parts.protocol !== 'http:');
     
     //console.log("Transport.send", siteReq, url_parts);
@@ -183,7 +203,7 @@ Transport.prototype.send = function (siteReq, data, callback) {
     if (siteReq.basicAuth) {
         req.headers['Authorization'] = 'Basic ' + new Buffer(siteReq.basicAuth).toString('base64');
     }
-    extend(req.headers, Transport.normalize(siteReq.headers));
+    fermata._extend(req.headers, fermata.Transport.normalize(siteReq.headers));
     if (data && req.method === 'GET' || req.method === 'HEAD') {
         /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
            avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
@@ -197,7 +217,7 @@ Transport.prototype.send = function (siteReq, data, callback) {
         req.headers['Content-Type'] = "text/plain;charset=UTF-8";
     }
     
-    req = ((secure) ? https : http).request(req);
+    req = ((secure) ? fermata._node.https : fermata._node.http).request(req);
     if (data) {
         req.setHeader('Content-Length', data.length);
         req.write(data);
@@ -223,12 +243,15 @@ Transport.prototype.send = function (siteReq, data, callback) {
                 // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
-            callback(res.statusCode, Transport.normalize(res.headers), responseData);
+            callback(res.statusCode, fermata.Transport.normalize(res.headers), responseData);
         });
     });
 };
 
-
-exports.api = function (config) {
-    return makeWrapper(new Site(config), new Transport(), [], {});
+fermata.api = function (config) {
+    return fermata._makeWrapper(new fermata.Site(config), new fermata.Transport(), [], {});
 };
+
+if (fermata._node) {
+    exports.api = fermata.api;
+}
