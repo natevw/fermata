@@ -38,9 +38,9 @@ if (typeof window === 'undefined') {
     }
 }
 fermata._extend = function (target, source) {
-    for (var key in source) {
+    Object.keys(source).forEach(function (key) {
         target[key] = source[key];
-    }
+    });
     return target;
 }
 fermata._typeof2 = function (o) {
@@ -73,10 +73,11 @@ fermata._wrapTheWrapper = function (impl) {
             return impl(name);
         }
     }, impl) : fermata._extend(impl, {
-        'get': function () { impl('get').call(impl, arguments); },
-        'put': function () { impl('put').call(impl, arguments); },
-        'post': function () { impl('post').call(impl, arguments); },
-        'delete': function () { impl('delete').call(impl, arguments); }
+        // TODO: don't apply, just return next step!
+        'get': function () { impl('get').apply(null, arguments); },
+        'put': function () { impl('put').apply(null, arguments); },
+        'post': function () { impl('post').apply(null, arguments); },
+        'delete': function () { impl('delete').apply(null, arguments); }
     });
 }
 
@@ -173,19 +174,52 @@ fermata.Site.prototype.request = function (info, transport, callback) {
 };
 
 
-fermata.Transport = function () {}
+fermata.Transport = function () {
+    this.send = (fermata._node) ? this.constructor._nodeSend : this.constructor._xhrSend;
+}
 fermata.Transport.normalize = function (headers) {
     var headers_norm = {};
     Object.keys(headers).forEach(function (k) {
         var k_norm = k.split('-').map(function (w) {
-            return w[0].toUpperCase() + w.slice(1).toLowerCase();
+            return w && w[0].toUpperCase() + w.slice(1).toLowerCase();
         }).join('-');
         headers_norm[k_norm] = headers[k];
     });
     return headers_norm;
 };
 
-fermata.Transport.prototype.send = function (siteReq, data, callback) {
+fermata.Transport._xhrSend = function (siteReq, data, callback) {
+    var req = new XMLHttpRequest(),
+        reqArgs = [siteReq.method, siteReq.url, true],
+        headers = fermata.Transport.normalize(siteReq.headers);
+    if (siteReq.basicAuth) {
+        reqArgs = reqArgs.concat(siteReq.basicAuth.split(':'));
+    }
+    
+    req.open.apply(req, reqArgs);
+    Object.keys(headers).forEach(function (k) {
+        req.setRequestHeader(k, headers[k]);
+    });
+    req.send(data);
+    req.onreadystatechange = function () {
+        if (this.readyState === req.DONE) {
+            if (this.status) {
+                var responseHeaders = {};
+                this.getAllResponseHeaders().split("\u000D\u000A").forEach(function (l) {
+                    if (!l) return;
+                    l = l.split("\u003A\u0020");
+                    responseHeaders[l[0]] = l.slice(1).join("\u003A\u0020");
+                });
+                // TODO: when XHR2 settles responseBody vs. response, handle "bytes" siteReq.responseType
+                callback(this.status, fermata.Transport.normalize(responseHeaders), this.responseText);
+            } else {
+                callback(null, Error("XHR request failed"));
+            }
+        }
+    }
+};
+
+fermata.Transport._nodeSend = function (siteReq, data, callback) {
     var url_parts = fermata._node.url.parse(siteReq.url),
         secure = (url_parts.protocol !== 'http:');
     

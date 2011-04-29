@@ -14,7 +14,7 @@ if (typeof window === 'undefined') {
             }
         },
         ok: function (a, msg) { assert.equal(Boolean(a), true, msg); },
-        ifError: function (e, msg) { assert.equal(Boolean(a), false, msg); }
+        ifError: function (e, msg) { assert.equal(Boolean(e), false, msg); }
     };
 }
 
@@ -55,4 +55,4 @@ f.api({url:"http://pdxapi.com/"})('bicycle_parking')('geojson')({bbox:"-122.6785
     assert.ok(o.update_seq);
 });
 
-assert.ok(Proxy, "No proxy support");
+assert.ok(Proxy, "no proxy support in this browser, tested fallback methods instead [informational]");
