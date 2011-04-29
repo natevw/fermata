@@ -22,7 +22,7 @@ So the REST API reference says "Our service base URL is http://youraccount.examp
 In Fermata, that's just:
 
     var api = fermata.site({url:"http://youraccount.example.com/api"});
-    (api.v3.frobbles).get(function (status, result) {
+    (api.v3.frobbles).get(function (err, result) {
        console.log("Here are your frobbles, sir!", result);
     });
 
