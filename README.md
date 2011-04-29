@@ -1,6 +1,6 @@
 # Fermata #
 
-Fermata is a node.js library that lets you simply state your REST requests using JavaScript property "dot" syntax.
+Fermata is a <del>node.js</del><ins>JavaScript</ins> library that lets you simply state your REST requests using JavaScript property "dot" syntax.
 
 
 ## Why? ##
@@ -10,6 +10,7 @@ Their servers define the latest and greatest available featureset.
 So why bother figuring out (or worse: maintaining!) an additional "wrapper library" layer over each of your favorite web APIs?
 
 Fermata magically provides one clean, native JavaScript library for every REST interface.
+It works in node.js, and it works in modern browsers (although using the property syntax requires FF4).
 It's never missing the newest features, and its documentation is always the reference documentation.
 
 
@@ -25,7 +26,8 @@ In Fermata, that's just:
        console.log("Here are your frobbles, sir!", result);
     });
 
-Fermata turns the REST server into a native JavaScript ([proxy](http://wiki.ecmascript.org/doku.php?id=harmony:proxies)) object. Paths in the URL become "dotted" property lookups, and a `GET` request is as easy as passing a result callback to any path component.
+***Fermata turns URLs into native JavaScript objects!***
+Paths become "dotted" property lookups, and a `GET` request is as easy as passing your "return value" callback to any path component.
 It really couldn't get much cleaner.
 
 Need to add query parameters? Append a dictionary object before providing the callback function:
@@ -34,6 +36,16 @@ Need to add query parameters? Append a dictionary object before providing the ca
     newAPI.frobbles({ perPage: 10, page: myPageNum }).get(myPageHandler);
 
 This does a `GET` on `http://youraccount.example.com/api/v4/frobbles?perPage=10&page=N` and returns the result via the asyncronous `myPageHandler` callback function.
+
+### Browser behind the times? ###
+
+Currently, the example above will only work in node.js and Firefox 4.
+In browsers without JavaScript's upcoming [Proxy](http://wiki.ecmascript.org/doku.php?id=harmony:proxies) feature, you will need to use parentheses:
+
+    var newAPI = fermata.site({url:"http://youraccount.example.com"})('api')('v4');
+    newAPI('frobbles')({ perPage: 10, page: myPageNum }).get(myPageHandler);
+
+Note how the dot syntax does still work for the final `.get`; Fermata provides fallbacks for the basic HTTP methods while browsers catch up.
 
 
 ### PUT ###
