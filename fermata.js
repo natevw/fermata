@@ -129,7 +129,7 @@ fermata.Site.prototype.url = function (path, query) {
                 v = JSON.stringify(v);
             }
         }
-        return ((v && v.map) ? v : [v]).map(function (v1) {
+        return [].concat(v).map(function (v1) {
             return encodeURIComponent(k) + ((v1 !== null) ? '=' + encodeURIComponent(v1) : '');
         }).join('&');
     }).join('&');
