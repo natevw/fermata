@@ -247,7 +247,7 @@ fermata.Transport._nodeSend = function (siteReq, data, callback) {
     if (typeof(data) === 'string') {
         data = new Buffer(data, 'utf8');
         // TODO: follow XHR algorithm for charset replacement if Content-Type already set
-        req.headers['Content-Type'] = "text/plain;charset=UTF-8";
+        req.headers['Content-Type'] || (req.headers['Content-Type'] = "text/plain;charset=UTF-8");
     }
     
     req = ((secure) ? fermata._node.https : fermata._node.http).request(req);
