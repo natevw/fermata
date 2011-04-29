@@ -21,7 +21,7 @@ It's always got the REST interface's newest features, and its documentation is a
 So the REST API reference says "Our service base URL is http://youraccount.example.com/api. To lookup Frobble data GET /v3/frobbles".
 In Fermata, that's just:
 
-    var api = fermata.site({url:"http://youraccount.example.com/api"});
+    var api = fermata.api({url:"http://youraccount.example.com/api"});
     (api.v3.frobbles).get(function (err, result) {
        console.log("Here are your frobbles, sir!", result);
     });
@@ -32,7 +32,7 @@ It really couldn't *get* much cleaner.
 
 Need to add query parameters? Append a dictionary object before providing the callback function:
 
-    var newAPI = fermata.site({url:"http://youraccount.example.com"}).api.v4;
+    var newAPI = fermata.api({url:"http://youraccount.example.com"}).api.v4;
     newAPI.frobbles({ perPage: 10, page: myPageNum }).get(myPageHandler);
 
 This does a `GET` on `http://youraccount.example.com/api/v4/frobbles?perPage=10&page=N` and returns the result via the asyncronous `myPageHandler` callback function.
@@ -42,7 +42,7 @@ This does a `GET` on `http://youraccount.example.com/api/v4/frobbles?perPage=10&
 Currently, the example above will only work in node.js and Firefox 4.
 In browsers without JavaScript's upcoming [Proxy](http://wiki.ecmascript.org/doku.php?id=harmony:proxies) feature, you will need to use parentheses:
 
-    var newAPI = fermata.site({url:"http://youraccount.example.com"})('api')('v4');
+    var newAPI = fermata.api({url:"http://youraccount.example.com"})('api')('v4');
     newAPI('frobbles')({ perPage: 10, page: myPageNum }).get(myPageHandler);
 
 Note how the dot syntax does still work for the final `.get`; Fermata provides fallbacks for the basic HTTP methods until browsers catch up.
@@ -52,7 +52,7 @@ Note how the dot syntax does still work for the final `.get`; Fermata provides f
 
 Okay? So your REST provider's documentation says "To teach a Whoozit new tricks, PUT them to /v3/whoozits/&lt;ID&gt;/repertoire":
 
-    var api = fermata.site({url:"http://youraccount.example.com/api"});
+    var api = fermata.api({url:"http://youraccount.example.com/api"});
     (api.v3.whoozits[myFavouriteWhoozit.api_id].repertoire).put({ tricks: [1,2,3,4] }, function (error, result) {
         if (!error) {
             console.log("Whoozit configuration accepted.");
@@ -66,7 +66,7 @@ Okay? So your REST provider's documentation says "To teach a Whoozit new tricks,
 
 "To create a Quibblelog, POST it to /utils/quibblelogger":
 
-    var utils = fermata.site({url:"http://youraccount.example.com/api"});
+    var utils = fermata.api({url:"http://youraccount.example.com/api"});
     (utils.quibblelogger).post({ message: "All your base.", level: 'stern warning' }, someCallback);
 
 Voilà!
@@ -79,7 +79,7 @@ Voilà!
 
 ### URL proxy ###
 
-* `fermata.site({url:base_url, [user, password]})` - create a URL proxy object for base_url
+* `fermata.api({url:base_url, [user, password]})` - create a URL proxy object for base_url
 * `()` - absolute URL as string
 * `.method([headers, [data,]] function)` - request targetting callback
 * `(object)` - override query parameters (see $key:value details below)
@@ -90,7 +90,7 @@ Voilà!
 
 Once you create a URL wrapper, you can extend it in various ways:
 
-    var api = fermata.site({url:"http://api.example.com:5984"});
+    var api = fermata.api({url:"http://api.example.com:5984"});
     var eg1 = api.database._design.app._view.by_date;
     var eg2 = api['database']['_design']['app']['_view']['by_date'];
     var eg3 = api("database")("_design")("app")("_view", "by_date");
@@ -102,7 +102,7 @@ These all result in the same API endpoint. We can dump the URL as a string using
 
 At any point in the process, you can set query parameters (a leading '$' on a key forces JSON stringification of the value):
 
-    var api = fermata.site({url:"http://api.example.com:5984", user:"myuser", password:"mypassword");
+    var api = fermata.api({url:"http://api.example.com:5984", user:"myuser", password:"mypassword");
     var faster_queries = api({ stale: 'ok' });
     var always_include_docs = faster_queries.database({ include_docs: true });
     var some_app = always_include_docs({ reduce: false })._design.app;
