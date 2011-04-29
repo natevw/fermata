@@ -201,7 +201,7 @@ fermata.Transport._xhrSend = function (siteReq, data, callback) {
     });
     req.send(data);
     req.onreadystatechange = function () {
-        if (this.readyState === req.DONE) {
+        if (this.readyState === (req.DONE || 4)) {
             if (this.status) {
                 var responseHeaders = {};
                 this.getAllResponseHeaders().split("\u000D\u000A").forEach(function (l) {
