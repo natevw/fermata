@@ -1,10 +1,11 @@
 # Fermata v0.3 (0.5? 0.9?) #
 
-Here are my notes on some upcoming design improvements (aka "breaking changes") that I've got planned for the next Fermata release or two. Hopefully these changes will put us close to something we can freeze as a stable 1.0 API.
+Here are my notes on some current/upcoming design improvements (aka "breaking changes") in the next Fermata release or two.
+Hopefully these changes put us close to something we can freeze as a stable 1.0 API.
 
 ## Cleaner API ##
 
-The v0.2 interface is doin it rong:
+The v0.2 interface was doin it rong:
 
     site.path.subpath.noun(callback)(headers).verb = data	// bwah?!
 
