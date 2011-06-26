@@ -76,7 +76,8 @@ fermata._wrapTheWrapper = function (impl) {
         'get': function () { impl('get').apply(null, arguments); },
         'put': function () { impl('put').apply(null, arguments); },
         'post': function () { impl('post').apply(null, arguments); },
-        'delete': function () { impl('delete').apply(null, arguments); }
+        'delete': function () { impl('delete').apply(null, arguments); },
+        'del': function () { impl('delete').apply(null, arguments); }
     });
 }
 
@@ -91,6 +92,9 @@ fermata._makeWrapper = function (site, transport, path, query) {
                 data = args.pop(),
                 headers = args.pop() || {},
                 method = path.pop();
+            if (method.toLowerCase() == 'del') {
+                method = 'delete';
+            }
             return site.request({method:method, path:path, query:query, headers:headers, data:data, args:args}, transport, callback);
         } else {
             var query2 = (lastArg === 'object') ? site.combine(query, args.pop()) : query,
