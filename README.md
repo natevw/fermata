@@ -72,6 +72,37 @@ Okay? So your REST provider's documentation says "To teach a Whoozit new tricks,
 Voilà!
 
 
+## Plugins ##
+
+By default, Fermata is initialized with a base URL and simply sends a JavaScript object to the server as a JSON string and expects that the server will reply with JSON too.
+For many perfectly useful REST servers, this is too simple: they need to talk in XML, or require that every request be specially signed with a secret key, or maybe it's just that the base URL could be configured in higher-level terms.
+Enter plugins.
+
+For example, many of the ideas in Fermata originated in a [node.js Chargify library](https://github.com/andyet/node-chargify) we wrote for their [payment management API](http://docs.chargify.com/api-introduction).
+
+Without plugins, setting up Fermata to connect to Chargify is totally possible...but kinda ugly:
+
+    
+    var chargifyAccount1 = chargify.wrapSite(site_name, api_key);
+    var chargifyAccount2 = fermata.api({url:"http://" + api_key + ":x@" + site_name + ".chargify.com"});
+    // ok now we have to choose which library to use...
+
+Plugins give us the best of both worlds. Fermata's one magical native API, with useful service-specific smoke and mirrors hiding backstage:
+
+    var chargifyAccount = fermata.chargify({site_name:site_name, api_key:api_key});
+    // WHOOHOO NOW WE ARE MONEY MAKING!!!
+
+
+There's a tiny bit of setup to use them from node.js, since Fermata can't *actually* read your mind:
+
+    var f = require('fermata');
+    require('fermata-chargify').init(f, 'billing');     // installs Chargify plugin into our local Fermata library, optionally with different name.
+    
+    f.billing({site_name:site_name, api_key:api_key});
+
+In the browser, just include any plugins after the script tag for Fermata, and defaults will be used.
+
+
 ## Complete documentation ##
 
 *NOTE*: this API may continue to [undergo refinement](https://github.com/andyet/fermata/blob/master/ROADMAP.md) until a stable 1.0 release.
@@ -121,6 +152,49 @@ Then, presto! To make a request on a Fermata URL, simply provide your response c
     
     // any method name can be used, not just the usual HTTP suspects
     api.database.copy({Destination: "new_database"}, null, logging_callback);
+
+
+### Writing plugins ###
+
+Fermata plugins should generally try to follow the following template:
+
+    var fermata;
+    (function () {
+        var plugin = {
+            // shared "base" state can be stored when a new URL is made via the plugin name, e.g. `fermata.api({url:"http://example.com"})`
+            name: "api",
+            setup: function (config) {
+                this.base_url = config.url;
+            },
+            
+            // three basic methods for customizing what happens between the native/client code and the network/server communication
+            bufferType: 'text',                                     // this plugin transports UTF-8 strings, vs. 'bytes' (=Buffer in Node, UInt8Array in supporting DOM, Array otherwise)
+            translateRequest: function (data, request) {            // request = {method, url={protocol, hostname, port, path, query}, headers}
+                request.headers['Content-Type'] = "application/json";
+                return JSON.stringify(data);
+            },
+            transport: function (request, buffer, callback) {       // callback = (response, buffer)
+                request.url = request.url.resolve(this.base_url);
+                request.headers['Accept'] = "application/json";
+                request.send(buffer, callback);
+            },
+            translateResponse: function (buffer, response) {        // reponse = {request, status, headers}
+                if (response.status.toFixed()[0] !== '2') {
+                    throw Error("Bad status code from server: " + response.status);
+                }
+                return JSON.parse(buffer);
+            }
+        };
+        
+        // some boilerplate to deal with CommonJS vs. browser
+        if (fermata) {
+            fermata.registerPlugin(plugin);
+        } else {
+            exports.init = function (fermata, name) { fermata.registerPlugin(plugin, name); }
+        }
+    })();
+
+As of Fermata v0.6, this plugin API is still likely to need improvement (=change) but the basic idea is that Fermata can delegate the interesting high-level decisions to logic customized for a particular REST server interface.
 
 
 ## Roadmap ##
