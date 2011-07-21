@@ -197,16 +197,25 @@ Fermata plugins should generally try to follow the following template:
 As of Fermata v0.6, this plugin API is still likely to need improvement (=change) but the basic idea is that Fermata can delegate the interesting high-level decisions to logic customized for a particular REST server interface.
 
 
+## Release Notes ##
+
+* 0.1 - initial release
+* 0.2 - Better docs, API tweaks
+* 0.3 - URL.method() redesign
+* 0.5 - Browser support
+* 0.6 - Plugin architecture
+
+
 ## Roadmap ##
 
-1. Finish plugin support, with samples for non-JSON APIs and stuff like OAuth.
-1. ??? - [feedback welcome](https://github.com/andyet/fermata/issues)!
+* 0.7 - more plugin samples+refinement?
+* ... - [feedback welcome](https://github.com/andyet/fermata/issues)!
 
 
 ## License ##
 
 Written by [Nathan Vander Wilt](http://twitter.com/natevw).
-Copyright © 2011 by &yet, LLC. Released under the terms of the MIT License:
+Copyright © 2011 &yet, LLC. Released under the terms of the MIT License:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
