@@ -2,7 +2,7 @@
 Fermata: a succinct REST client.
 Written by Nathan Vander Wilt (nate@andyet.net).
 
-Copyright © 2011 by &yet, LLC. Released under the terms of the MIT License:
+Copyright © 2011 &yet, LLC. Released under the terms of the MIT License:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,68 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+var fermata = {};
+
+fermata.registerPlugin = function (plugin, name) {
+    name = name || plugin.name;
+    fermata[name] = function () {
+        var pluginstance = Object.create(plugin);
+        plugin.setup.apply(pluginstance, arguments);
+        return fermata._makeNativeURL(pluginstance, path, query);
+    };
+    if (typeof window === 'undefined') {
+        exports[name] = fermata[name];
+    }
+};
+
+fermata._URL = function () {};
+fermata._URL.prototype = Object.create({}, {
+    protocol: {},
+    host: {},
+    hostname: {},
+    port: {},
+    pathname: {},
+    search: {},
+    hash: {}
+});
+
+
+
+fermata._makeNativeURL = function (plugin, pathArray, queryDict) {
+    return fermata._wrapTheWrapper(function () {
+        var args = [].splice.call(arguments, 0),
+            lastArg = fermata._typeof2(args[args.length-1]);
+        if (lastArg === 'undefined') {
+            // TODO: this doesn't match the internal URL abstraction we want
+            return fermata._stringForURL(pathArray, queryDict, plugin.baseURL);
+        } else if (lastArg === 'function') {
+            var callback = args.pop(),
+                data = args.pop(),
+                headers = args.pop() || {},
+                method = path.pop();
+            
+            return site.request({method:method, path:path, query:query, headers:headers, data:data, args:args}, transport, callback);
+        } else {
+            var query2 = (lastArg === 'object') ? site.combine(query, args.pop()) : query,
+                path2 = (args.length) ? site.join(path, args) : path;
+            return fermata._makeWrapper(site, transport, path2, query2);
+        }
+    });
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 var Proxy;  // FEEEEL THE POWAH! FEEEEEEEEEEL IT!!!!

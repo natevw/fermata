@@ -163,8 +163,9 @@ Fermata plugins should generally try to follow the following template:
         var plugin = {
             // shared "base" state can be stored when a new URL is made via the plugin name, e.g. `fermata.api({url:"http://example.com"})`
             name: "api",
+            baseURL: null,
             setup: function (config) {
-                this.base_url = config.url;
+                this.baseURL = config.url;
             },
             
             // three basic methods for customizing what happens between the native/client code and the network/server communication
