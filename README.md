@@ -163,27 +163,19 @@ Fermata plugins should generally try to follow the following template:
         var plugin = {
             // shared "base" state can be stored when a new URL is made via the plugin name, e.g. `fermata.api({url:"http://example.com"})`
             name: "api",
-            baseURL: null,
             setup: function (config) {
-                this.baseURL = config.url;
+                return config.url;          // should return base URL (string)
             },
-            
-            // three basic methods for customizing what happens between the native/client code and the network/server communication
-            bufferType: 'text',                                     // this plugin transports UTF-8 strings, vs. 'bytes' (=Buffer in Node, UInt8Array in supporting DOM, Array otherwise)
-            translateRequest: function (data, request) {            // request = {method, url={protocol, hostname, port, path, query}, headers}
-                request.headers['Content-Type'] = "application/json";
-                return JSON.stringify(data);
-            },
-            transport: function (request, buffer, callback) {       // callback = (response, buffer)
-                request.url = request.url.resolve(this.base_url);
+            transport: function (request, data, returnData) {                                       // request = {method, url={base, path, query}, headers}
                 request.headers['Accept'] = "application/json";
-                request.send(buffer, callback);
-            },
-            translateResponse: function (buffer, response) {        // reponse = {request, status, headers}
-                if (response.status.toFixed()[0] !== '2') {
-                    throw Error("Bad status code from server: " + response.status);
-                }
-                return JSON.parse(buffer);
+                request.headers['Content-Type'] = "application/json";
+                // transportText uses UTF-8 strings, vs. transportBytes (=Buffer in Node, UInt8Array in supporting DOM, Array otherwise)
+                this.transportText(request, JSON.stringify(data), function (response, text) {       // reponse = {status, headers}
+                    if (response.status.toFixed()[0] !== '2') {
+                        throw Error("Bad status code from server: " + response.status);
+                    }
+                    returnData(JSON.parse(text));
+                });
             }
         };
         
@@ -191,7 +183,7 @@ Fermata plugins should generally try to follow the following template:
         if (fermata) {
             fermata.registerPlugin(plugin);
         } else {
-            exports.init = function (fermata, name) { fermata.registerPlugin(plugin, name); }
+            exports.init = function (fermata, name) { return fermata.registerPlugin(plugin, name); }
         }
     })();
 

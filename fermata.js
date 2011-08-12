@@ -23,7 +23,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-var fermata = {};
+var fermata = {};       // see http://nodejs.org/docs/v0.4.8/api/all.html#module.exports
 
 fermata.registerPlugin = function (plugin, name) {
     name = name || plugin.name;
@@ -37,6 +37,7 @@ fermata.registerPlugin = function (plugin, name) {
     }
 };
 
+// http://www.w3.org/TR/html5/urls.html#interfaces-for-url-manipulation
 fermata._URL = function () {};
 fermata._URL.prototype = Object.create({}, {
     protocol: {},
@@ -48,7 +49,8 @@ fermata._URL.prototype = Object.create({}, {
     hash: {}
 });
 
-
+// http://wiki.apache.org/couchdb/ExternalProcesses#JSON_Requests
+fermata._URL = {base:"", path:[], query:{}};
 
 fermata._makeNativeURL = function (plugin, pathArray, queryDict) {
     return fermata._wrapTheWrapper(function () {
@@ -61,7 +63,7 @@ fermata._makeNativeURL = function (plugin, pathArray, queryDict) {
             var callback = args.pop(),
                 data = args.pop(),
                 headers = args.pop() || {},
-                method = path.pop();
+                method = pathArray.pop();
             
             return site.request({method:method, path:path, query:query, headers:headers, data:data, args:args}, transport, callback);
         } else {
@@ -71,19 +73,6 @@ fermata._makeNativeURL = function (plugin, pathArray, queryDict) {
         }
     });
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 var Proxy;  // FEEEEL THE POWAH! FEEEEEEEEEEL IT!!!!
