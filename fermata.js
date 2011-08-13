@@ -29,77 +29,40 @@ fermata.registerPlugin = function (plugin, name) {
     name = name || plugin.name;
     fermata[name] = function () {
         var pluginstance = Object.create(plugin);
-        plugin.setup.apply(pluginstance, arguments);
-        return fermata._makeNativeURL(pluginstance, path, query);
+        var base = plugin.setup.apply(pluginstance, arguments);
+        return fermata._makeNativeURL(pluginstance, {base:(base||""), path:[], query:{}});
     };
     if (typeof window === 'undefined') {
         exports[name] = fermata[name];
     }
 };
 
-// http://www.w3.org/TR/html5/urls.html#interfaces-for-url-manipulation
-fermata._URL = function () {};
-fermata._URL.prototype = Object.create({}, {
-    protocol: {},
-    host: {},
-    hostname: {},
-    port: {},
-    pathname: {},
-    search: {},
-    hash: {}
-});
-
-// http://wiki.apache.org/couchdb/ExternalProcesses#JSON_Requests
-fermata._URL = {base:"", path:[], query:{}};
-
-fermata._makeNativeURL = function (plugin, pathArray, queryDict) {
+fermata._makeNativeURL = function (plugin, url) {
     return fermata._wrapTheWrapper(function () {
         var args = [].splice.call(arguments, 0),
             lastArg = fermata._typeof2(args[args.length-1]);
         if (lastArg === 'undefined') {
-            // TODO: this doesn't match the internal URL abstraction we want
-            return fermata._stringForURL(pathArray, queryDict, plugin.baseURL);
+            return fermata._stringForURL(url);
         } else if (lastArg === 'function') {
             var callback = args.pop(),
                 data = args.pop(),
                 headers = args.pop() || {},
                 method = pathArray.pop();
-            
-            return site.request({method:method, path:path, query:query, headers:headers, data:data, args:args}, transport, callback);
+            if (method.toLowerCase() == 'del') {
+                method = 'delete';
+            }
+            // TODO: CouchDB does not hide path/query within request.url like we're doing
+            return fermata._doRequest(plugin, {method:method, url:url, headers:headers}, data, callback);
         } else {
-            var query2 = (lastArg === 'object') ? site.combine(query, args.pop()) : query,
-                path2 = (args.length) ? site.join(path, args) : path;
-            return fermata._makeWrapper(site, transport, path2, query2);
+            var query2 = (lastArg === 'object') ? fermata._extend(fermata._extend({}, url.query), args.pop()) : url.query,
+                path2 = (args.length) ? url.path.concat(args) : url.path;
+            return fermata._makeNativeURL(plugin, {base:url.base, path:path2, query:query2});
         }
     });
 };
 
-
-var Proxy;  // FEEEEL THE POWAH! FEEEEEEEEEEL IT!!!!
-
-var fermata = {};
-if (typeof window === 'undefined') {
-    fermata._node = {
-        url: require('url'),
-        https: require('https'),
-        http: require('http')
-    };
-    if (!Proxy) {
-        fermata._node.Proxy = require('node-proxy');
-    }
-}
-fermata._extend = function (target, source) {
-    Object.keys(source).forEach(function (key) {
-        target[key] = source[key];
-    });
-    return target;
-}
-fermata._typeof2 = function (o) {
-    return (Array.isArray(o)) ? 'array' : typeof(o);
-}
-
 fermata._wrapTheWrapper = function (impl) {
-    return (Proxy || fermata._node) ? (Proxy) ? Proxy.createFunction({
+    return (Proxy || fermata._nodeProxy) ? (Proxy) ? Proxy.createFunction({
         // fundamental trap stubs - http://wiki.ecmascript.org/doku.php?id=harmony:proxies
         'getOwnPropertyDescriptor': function (name) {},
         'getPropertyDescriptor': function (name) {},
@@ -112,7 +75,7 @@ fermata._wrapTheWrapper = function (impl) {
         'get': function (target, name) {
             return impl(name);
         }
-    }, impl) : fermata._node.Proxy.createFunction({
+    }, impl) : fermata._nodeProxy.createFunction({
         // NOTE: node-proxy has a different set of required handlers than harmony:proxies proposal
         'getOwnPropertyDescriptor': function (name) {},
         'enumerate': function () { return []; },
@@ -127,52 +90,16 @@ fermata._wrapTheWrapper = function (impl) {
         'get': function () { impl('get').apply(null, arguments); },
         'put': function () { impl('put').apply(null, arguments); },
         'post': function () { impl('post').apply(null, arguments); },
-        'delete': function () { impl('delete').apply(null, arguments); }
+        'delete': function () { impl('delete').apply(null, arguments); },
+        'del': function () { impl('delete').apply(null, arguments); },
     });
-}
-
-fermata._makeWrapper = function (site, transport, path, query) {
-    return fermata._wrapTheWrapper(function () {
-        var args = [].splice.call(arguments, 0),
-            lastArg = fermata._typeof2(args[args.length-1]);
-        if (lastArg === 'undefined') {
-            return site.url(path, query);
-        } else if (lastArg === 'function') {
-            var callback = args.pop(),
-                data = args.pop(),
-                headers = args.pop() || {},
-                method = path.pop();
-            return site.request({method:method, path:path, query:query, headers:headers, data:data, args:args}, transport, callback);
-        } else {
-            var query2 = (lastArg === 'object') ? site.combine(query, args.pop()) : query,
-                path2 = (args.length) ? site.join(path, args) : path;
-            return fermata._makeWrapper(site, transport, path2, query2);
-        }
-    });
-}
-
-
-fermata.Site = function (config) {
-    this.base = config.url;
-    if (this.base.slice(-1) !== '/') {
-        this.base += '/';
-    }
-    if (config.user) {
-        this.basicAuth = config.user + ':' + (config.password || '');
-    }
-}
-
-fermata.Site.prototype.combine = function (query, subquery) {
-    return fermata._extend(fermata._extend({}, query), subquery);
 };
-fermata.Site.prototype.join = function (path, subpath) {
-    return path.concat(subpath);
-};
-fermata.Site.prototype.url = function (path, query) {
-    var p = path.map(function (c) {
+
+fermata._stringForURL = function (url) {        // url={base:"",path:[],query:{}}
+    var p = url.path.map(function (c) {
         return (c.join) ? c.join('/') : encodeURIComponent(c);
     }).join('/');
-    var q = Object.keys(query).map(function (k) {
+    var q = Object.keys(url.query).map(function (k) {
         var v = query[k];
         if (k[0] === '$') {
             k = k.slice(1);
@@ -184,50 +111,43 @@ fermata.Site.prototype.url = function (path, query) {
             return encodeURIComponent(k) + ((v1 !== null) ? '=' + encodeURIComponent(v1) : '');
         }).join('&');
     }).join('&');
-    return this.base + p + ((q) ? '?' + q : '');
+    return url.base + p + ((q) ? '?' + q : '');
 };
 
-fermata.Site.prototype.request = function (info, transport, callback) {
-    //console.log("Site.request", info);
-    var data = JSON.stringify(info.data);
-    var req = {
-        responseType: 'text', // vs. 'bytes' (Buffer in Node, UInt8Array in supporting DOM, Array otherwise)
-        method: info.method,
-        url: this.url(info.path, info.query),
-        headers: {}
+fermata._extend = function (target, source) {
+    Object.keys(source).forEach(function (key) {
+        target[key] = source[key];
+    });
+    return target;
+};
+
+fermata._typeof2 = function (o) {
+    return (Array.isArray(o)) ? 'array' : typeof(o);
+};
+
+var Proxy;  // FEEEEL THE POWAH! FEEEEEEEEEEL IT!!!!
+if (typeof window === 'undefined') {
+    fermata._node = {
+        url: require('url'),
+        https: require('https'),
+        http: require('http')
     };
-    fermata._extend(req.headers, {
-        'Content-Type': "application/json",
-        'Accept': "application/json"
-    });
-    fermata._extend(req.headers, info.headers);
-    req.basicAuth = this.basicAuth;
-    
-    transport.send(req, data, function (status, headers, buffer) {
-        //console.log(arguments);
-        if (status === null) {
-            return callback(headers);
-        }
-        
-        var error, object;
-        try {
-            object = JSON.parse(buffer);
-        } catch (e) {
-            error = e;
-            object = buffer;
-        }
-        if (status.toFixed()[0] !== '2') {
-            error = Error("Bad status code from server: " + status);
-        }
-        return callback(error, object);
+    if (!Proxy) {
+        fermata._nodeProxy = require('node-proxy');
+    }
+}
+
+
+fermata._doRequest = function (plugin, request, data, callback) {
+    request.headers = fermata._normalize(request.headers);
+    plugin.transport(request, data, function (returnData) {
+        callback(null, returnData);
     });
 };
 
 
-fermata.Transport = function () {
-    this.send = (fermata._node) ? this.constructor._nodeSend : this.constructor._xhrSend;
-}
-fermata.Transport.normalize = function (headers) {
+
+fermata._normalize = function (headers) {
     var headers_norm = {};
     Object.keys(headers).forEach(function (k) {
         var k_norm = k.split('-').map(function (w) {
@@ -238,21 +158,20 @@ fermata.Transport.normalize = function (headers) {
     return headers_norm;
 };
 
-fermata.Transport._xhrSend = function (siteReq, data, callback) {
-    var req = new XMLHttpRequest(),
-        reqArgs = [siteReq.method, siteReq.url, true],
-        headers = fermata.Transport.normalize(siteReq.headers);
-    if (siteReq.basicAuth) {
-        reqArgs = reqArgs.concat(siteReq.basicAuth.split(':'));
-    }
+fermata.transport = (fermata._node) ? fermata._nodeTransport : fermata._xhrTransport;
+
+
+fermata._xhrTransport = function (request, data, callback) {
+    var xhr = new XMLHttpRequest(),
+        url = fermata._stringForURL(request.url);
     
-    req.open.apply(req, reqArgs);
-    Object.keys(headers).forEach(function (k) {
-        req.setRequestHeader(k, headers[k]);
+    xhr.open(request.method, url, true);
+    Object.keys(request.headers).forEach(function (k) {
+        xhr.setRequestHeader(k, headers[k]);
     });
-    req.send(data);
-    req.onreadystatechange = function () {
-        if (this.readyState === (req.DONE || 4)) {
+    xhr.send(data);
+    xhr.onreadystatechange = function () {
+        if (this.readyState === (xhr.DONE || 4)) {
             if (this.status) {
                 var responseHeaders = {};
                 this.getAllResponseHeaders().split("\u000D\u000A").forEach(function (l) {
@@ -269,11 +188,10 @@ fermata.Transport._xhrSend = function (siteReq, data, callback) {
     }
 };
 
-fermata.Transport._nodeSend = function (siteReq, data, callback) {
+fermata._nodeTransport = function (siteReq, data, callback) {
     var url_parts = fermata._node.url.parse(siteReq.url),
         secure = (url_parts.protocol !== 'http:');
     
-    //console.log("Transport.send", siteReq, url_parts);
     var req = {
         host: url_parts.hostname,
         port: url_parts.port,
@@ -283,9 +201,6 @@ fermata.Transport._nodeSend = function (siteReq, data, callback) {
     };
     if (url_parts.auth) {
         req.headers['Authorization'] = 'Basic ' + new Buffer(url_parts.auth).toString('base64');
-    }
-    if (siteReq.basicAuth) {
-        req.headers['Authorization'] = 'Basic ' + new Buffer(siteReq.basicAuth).toString('base64');
     }
     fermata._extend(req.headers, fermata.Transport.normalize(siteReq.headers));
     if (data && req.method === 'GET' || req.method === 'HEAD') {
@@ -332,10 +247,57 @@ fermata.Transport._nodeSend = function (siteReq, data, callback) {
     });
 };
 
-fermata.api = function (config) {
-    return fermata._makeWrapper(new fermata.Site(config), new fermata.Transport(), [], {});
-};
 
-if (fermata._node) {
-    exports.api = fermata.api;
+
+
+
+
+
+
+// ############   OLD BELOW   ############ \\
+
+fermata.Site = function (config) {
+    this.base = config.url;
+    if (this.base.slice(-1) !== '/') {
+        this.base += '/';
+    }
+    if (config.user) {
+        this.basicAuth = config.user + ':' + (config.password || '');
+    }
 }
+
+fermata.Site.prototype.request = function (info, transport, callback) {
+    //console.log("Site.request", info);
+    var data = JSON.stringify(info.data);
+    var req = {
+        responseType: 'text', // vs. 'bytes' (Buffer in Node, UInt8Array in supporting DOM, Array otherwise)
+        method: info.method,
+        url: this.url(info.path, info.query),
+        headers: {}
+    };
+    fermata._extend(req.headers, {
+        'Content-Type': "application/json",
+        'Accept': "application/json"
+    });
+    fermata._extend(req.headers, info.headers);
+    req.basicAuth = this.basicAuth;
+    
+    transport.send(req, data, function (status, headers, buffer) {
+        //console.log(arguments);
+        if (status === null) {
+            return callback(headers);
+        }
+        
+        var error, object;
+        try {
+            object = JSON.parse(buffer);
+        } catch (e) {
+            error = e;
+            object = buffer;
+        }
+        if (status.toFixed()[0] !== '2') {
+            error = Error("Bad status code from server: " + status);
+        }
+        return callback(error, object);
+    });
+};
