@@ -96,7 +96,7 @@ Plugins give us the best of both worlds. Fermata's one magical native API, with 
 There's a tiny bit of setup to use them from node.js, since Fermata can't *actually* read your mind:
 
     var f = require('fermata');
-    require('fermata-chargify').init(f, 'billing');     // installs Chargify plugin into our local Fermata library, optionally with different name.
+    require('fermata-chargify').init(f, 'billing');     // installs Chargify plugin into our Fermata module, optionally with different name.
     
     f.billing({site_name:site_name, api_key:api_key});
 
@@ -160,38 +160,38 @@ Fermata plugins should generally try to follow the following template:
 
     var fermata;
     (function () {
-        var plugin = {
-            // shared "base" state can be stored when a new URL is made via the plugin name, e.g. `fermata.api({url:"http://example.com"})`
-            name: "json",
-            setup: function (fermata, config) {
-                this._fermata = fermata;
-                return config.url;      // should return base URL (string)
-            },
-            transport: function (request, callback) {       // request = {method, url={base,path,query}, headers, data}
+        var plugin = function (transport, baseURL) {
+            this.base = baseURL;
+            return function (request, callback) {                   // request = {base, method, path, query, headers, data}
                 request.headers['Accept'] = "application/json";
                 request.headers['Content-Type'] = "application/json";
-                request.text = JSON.stringify(request.data);        // set request.text (=UTF-8 string) or request.bytes (=Buffer in Node, UInt8Array in supporting DOM, Array otherwise)
-                this._fermata.transport(request, function (err, response) {     // reponse = {status, headers, text|bytes}
+                request.data = JSON.stringify(request.data);        // Fermata transports String as UTF-8 "text", Buffer/UInt8Array/Array as "bytes"
+                transport(request, function (err, response) {       // response = {status, headers, data}
                     if (!err) {
-                        response = JSON.parse(response.text);
-                    }
-                    if (response.status.toFixed()[0] !== '2') {
-                        err = Error("Bad status code from server: " + response.status);
+                        if (response.status.toFixed()[0] !== '2') {
+                            err = Error("Bad status code from server: " + response.status);
+                        }
+                        try {
+                            response = JSON.parse(response.data);
+                        } catch (e) {
+                            err = e;
+                        }
                     }
                     callback(err, response);
                 });
-            }
+            };
         };
         
-        // some boilerplate to deal with CommonJS vs. browser
+        // some boilerplate to deal with browser vs. CommonJS
+        plugin.name = "json";
         if (fermata) {
-            fermata.registerPlugin(plugin);
+            fermata.registerPlugin(plugin.name, plugin);
         } else {
-            exports.init = function (fermata, name) { return fermata.registerPlugin(plugin, name); }
+            exports.init = function (fermata, name) { return fermata.registerPlugin(name || plugin.name, plugin); }
         }
     })();
 
-As of Fermata v0.6, this plugin API is still likely to need improvement (=change) but the basic idea is that Fermata can delegate the interesting high-level decisions to logic customized for a particular REST server interface.
+As of Fermata v0.6[alpha], this plugin API may still need some improvement (=change) but the basic idea is that Fermata can delegate the interesting high-level decisions to logic customized for a particular REST server interface.
 
 
 ## Release Notes ##
