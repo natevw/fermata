@@ -23,21 +23,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-var fermata = {};       // see http://nodejs.org/docs/v0.4.8/api/all.html#module.exports
+var Proxy;  // FEEEEL THE POWAH! FEEEEEEEEEEL IT!!!!
 
-fermata.registerPlugin = function (plugin, name) {
-    name = name || plugin.name;
+var fermata = {};
+
+fermata.registerPlugin = function (name, plugin) {
     fermata[name] = function () {
-        var pluginstance = Object.create(plugin);
-        var base = plugin.setup.apply(pluginstance, arguments);
-        return fermata._makeNativeURL(pluginstance, {base:(base||""), path:[], query:{}});
+        var url = {base:"", path:[], query:{}}, args = [];
+        args.push(fermata._transport);
+        [].push.apply(args, arguments);
+        return fermata._makeNativeURL(plugin.apply(url, args), url);
     };
-    if (typeof window === 'undefined') {
+    if (fermata._useExports) {
         exports[name] = fermata[name];
     }
 };
 
-fermata._makeNativeURL = function (plugin, url) {
+fermata._makeNativeURL = function (transport, url) {
     return fermata._wrapTheWrapper(function () {
         var args = [].splice.call(arguments, 0),
             lastArg = fermata._typeof2(args[args.length-1]);
@@ -46,17 +48,13 @@ fermata._makeNativeURL = function (plugin, url) {
         } else if (lastArg === 'function') {
             var callback = args.pop(),
                 data = args.pop(),
-                headers = args.pop() || {},
-                method = pathArray.pop();
-            if (method.toLowerCase() == 'del') {
-                method = 'delete';
-            }
-            // TODO: CouchDB does not hide path/query within request.url like we're doing
-            return fermata._doRequest(plugin, {method:method, url:url, headers:headers}, data, callback);
+                headers = fermata._normalize(args.pop() || {}),
+                method = url.path.pop().toUpperCase();
+            return transport({base:url.base, method:method, path:url.path, query:url.query, headers:headers, data:data}, callback);
         } else {
             var query2 = (lastArg === 'object') ? fermata._extend(fermata._extend({}, url.query), args.pop()) : url.query,
                 path2 = (args.length) ? url.path.concat(args) : url.path;
-            return fermata._makeNativeURL(plugin, {base:url.base, path:path2, query:query2});
+            return fermata._makeNativeURL(transport, {base:url.base, path:path2, query:query2});
         }
     });
 };
@@ -95,12 +93,99 @@ fermata._wrapTheWrapper = function (impl) {
     });
 };
 
+fermata._nodeTransport = function (request, callback) {
+    var url = fermata._stringForURL(request),
+        url_parts = require('url').parse(url),
+        headers = {},
+        data = null, textResponse = false;
+    
+    if (url_parts.auth) {
+        headers['Authorization'] = 'Basic ' + new Buffer(url_parts.auth).toString('base64');
+    }
+    fermata._extend(headers, request.headers);
+    
+    if (request.data && request.method === 'GET' || request.method === 'HEAD') {
+        /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
+           avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
+        console.warn("Ignoring data passed to GET or HEAD request.");
+    } else if (typeof(request.data) === 'string') {
+        textResponse = true;
+        data = new Buffer(request.data, 'utf8');
+        // TODO: follow XHR algorithm for charset replacement if Content-Type already set
+        headers['Content-Type'] || (headers['Content-Type'] = "text/plain;charset=UTF-8");
+    } else if (request.data && request.data.length) {
+        data = new Buffer(request.data);
+    }
+    
+    var req = ((url_parts.protocol === 'https:') ? require('https') : require('http')).request({
+        host: url_parts.hostname,
+        port: url_parts.port,
+        method: request.method,
+        path: url_parts.pathname + (url_parts.search || ''),
+        headers: headers
+    });
+    if (data) {
+        req.setHeader('Content-Length', data.length);
+        req.write(data);
+    } else {
+        req.setHeader('Content-Length', 0);
+    }
+    req.end();
+    
+    req.on('error', function (e) {
+        callback(e, null);
+    });
+    req.on('response', function (res) {
+        var responseData = new Buffer(0);
+        res.on('data', function (chunk) {
+            var prevChunk = responseData;
+            responseData = new Buffer(prevChunk.length + chunk.length);
+            prevChunk.copy(responseData);
+            chunk.copy(responseData, prevChunk.length);
+        });
+        res.on('end', function () {
+            if (textResponse) {
+                // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
+                responseData = responseData.toString('utf8');
+            }
+            callback(null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
+        });
+    });
+};
+
+fermata._xhrTransport = function (request, callback) {
+    var xhr = new XMLHttpRequest(),
+        url = fermata._stringForURL(request);
+    
+    xhr.open(request.method, url, true);
+    Object.keys(request.headers).forEach(function (k) {
+        xhr.setRequestHeader(k, request.headers[k]);
+    });
+    xhr.send(request.data);
+    xhr.onreadystatechange = function () {
+        if (this.readyState === (xhr.DONE || 4)) {
+            if (this.status) {
+                var responseHeaders = {};
+                this.getAllResponseHeaders().split("\u000D\u000A").forEach(function (l) {
+                    if (!l) return;
+                    l = l.split("\u003A\u0020");
+                    responseHeaders[l[0]] = l.slice(1).join("\u003A\u0020");
+                });
+                // TODO: when XHR2 settles responseBody vs. response, handle "bytes" siteReq.responseType
+                callback(null, {status:this.status, headers:fermata._normalize(responseHeaders), data:this.responseText});
+            } else {
+                callback(Error("XHR request failed"), null);
+            }
+        }
+    }
+};
+
 fermata._stringForURL = function (url) {        // url={base:"",path:[],query:{}}
     var p = url.path.map(function (c) {
         return (c.join) ? c.join('/') : encodeURIComponent(c);
     }).join('/');
     var q = Object.keys(url.query).map(function (k) {
-        var v = query[k];
+        var v = url.query[k];
         if (k[0] === '$') {
             k = k.slice(1);
             if (k[0] !== '$') {
@@ -114,39 +199,6 @@ fermata._stringForURL = function (url) {        // url={base:"",path:[],query:{}
     return url.base + p + ((q) ? '?' + q : '');
 };
 
-fermata._extend = function (target, source) {
-    Object.keys(source).forEach(function (key) {
-        target[key] = source[key];
-    });
-    return target;
-};
-
-fermata._typeof2 = function (o) {
-    return (Array.isArray(o)) ? 'array' : typeof(o);
-};
-
-var Proxy;  // FEEEEL THE POWAH! FEEEEEEEEEEL IT!!!!
-if (typeof window === 'undefined') {
-    fermata._node = {
-        url: require('url'),
-        https: require('https'),
-        http: require('http')
-    };
-    if (!Proxy) {
-        fermata._nodeProxy = require('node-proxy');
-    }
-}
-
-
-fermata._doRequest = function (plugin, request, data, callback) {
-    request.headers = fermata._normalize(request.headers);
-    plugin.transport(request, data, function (returnData) {
-        callback(null, returnData);
-    });
-};
-
-
-
 fermata._normalize = function (headers) {
     var headers_norm = {};
     Object.keys(headers).forEach(function (k) {
@@ -158,146 +210,56 @@ fermata._normalize = function (headers) {
     return headers_norm;
 };
 
-fermata.transport = (fermata._node) ? fermata._nodeTransport : fermata._xhrTransport;
-
-
-fermata._xhrTransport = function (request, data, callback) {
-    var xhr = new XMLHttpRequest(),
-        url = fermata._stringForURL(request.url);
-    
-    xhr.open(request.method, url, true);
-    Object.keys(request.headers).forEach(function (k) {
-        xhr.setRequestHeader(k, headers[k]);
+fermata._extend = function (target, source) {
+    Object.keys(source).forEach(function (key) {
+        target[key] = source[key];
     });
-    xhr.send(data);
-    xhr.onreadystatechange = function () {
-        if (this.readyState === (xhr.DONE || 4)) {
-            if (this.status) {
-                var responseHeaders = {};
-                this.getAllResponseHeaders().split("\u000D\u000A").forEach(function (l) {
-                    if (!l) return;
-                    l = l.split("\u003A\u0020");
-                    responseHeaders[l[0]] = l.slice(1).join("\u003A\u0020");
-                });
-                // TODO: when XHR2 settles responseBody vs. response, handle "bytes" siteReq.responseType
-                callback(this.status, fermata.Transport.normalize(responseHeaders), this.responseText);
-            } else {
-                callback(null, Error("XHR request failed"));
-            }
-        }
-    }
+    return target;
 };
 
-fermata._nodeTransport = function (siteReq, data, callback) {
-    var url_parts = fermata._node.url.parse(siteReq.url),
-        secure = (url_parts.protocol !== 'http:');
-    
-    var req = {
-        host: url_parts.hostname,
-        port: url_parts.port,
-        method: siteReq.method.toUpperCase(),
-        path: url_parts.pathname + (url_parts.search || ''),
-        headers: {}
-    };
-    if (url_parts.auth) {
-        req.headers['Authorization'] = 'Basic ' + new Buffer(url_parts.auth).toString('base64');
-    }
-    fermata._extend(req.headers, fermata.Transport.normalize(siteReq.headers));
-    if (data && req.method === 'GET' || req.method === 'HEAD') {
-        /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
-           avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
-        console.warn("Ignoring data passed to GET or HEAD request.");
-        data = null;
-    }
-    
-    if (typeof(data) === 'string') {
-        data = new Buffer(data, 'utf8');
-        // TODO: follow XHR algorithm for charset replacement if Content-Type already set
-        req.headers['Content-Type'] || (req.headers['Content-Type'] = "text/plain;charset=UTF-8");
-    }
-    
-    req = ((secure) ? fermata._node.https : fermata._node.http).request(req);
-    if (data) {
-        req.setHeader('Content-Length', data.length);
-        req.write(data);
-    } else {
-        req.setHeader('Content-Length', 0);
-    }
-    req.end();
-    
-    req.on('error', function (e) {
-        callback(null, e);
-    });
-    req.on('response', function (res) {
-        //console.log("HTTP response", res);
-        var responseData = new Buffer(0);
-        res.on('data', function (chunk) {
-            var prevChunk = responseData;
-            responseData = new Buffer(prevChunk.length + chunk.length);
-            prevChunk.copy(responseData);
-            chunk.copy(responseData, prevChunk.length);
-        });
-        res.on('end', function () {
-            if (siteReq.responseType === 'text') {
-                // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
-                responseData = responseData.toString('utf8');
-            }
-            callback(res.statusCode, fermata.Transport.normalize(res.headers), responseData);
-        });
-    });
+fermata._typeof2 = function (o) {
+    return (Array.isArray(o)) ? 'array' : typeof(o);
 };
 
 
-
-
-
-
-
-
-// ############   OLD BELOW   ############ \\
-
-fermata.Site = function (config) {
-    this.base = config.url;
-    if (this.base.slice(-1) !== '/') {
-        this.base += '/';
+if (typeof window === 'undefined') {
+    fermata._useExports = true;
+    fermata._transport = fermata._nodeTransport;
+    if (!Proxy) {
+        fermata._nodeProxy = require('node-proxy');
     }
-    if (config.user) {
-        this.basicAuth = config.user + ':' + (config.password || '');
-    }
+    exports.registerPlugin = fermata.registerPlugin;
+} else {
+    fermata._transport = fermata._xhrTransport;
 }
 
-fermata.Site.prototype.request = function (info, transport, callback) {
-    //console.log("Site.request", info);
-    var data = JSON.stringify(info.data);
-    var req = {
-        responseType: 'text', // vs. 'bytes' (Buffer in Node, UInt8Array in supporting DOM, Array otherwise)
-        method: info.method,
-        url: this.url(info.path, info.query),
-        headers: {}
+fermata.registerPlugin("raw", function (transport, config) {
+    fermata._extend(this, config);
+    return transport;
+});
+
+fermata.registerPlugin("api", function (transport, temp) {
+    // TODO: update tests, remove these config hacks
+    this.base = temp.url;
+    if (this.base.slice(-1) !== '/') {
+        this.base += "/";
+    }
+    return function (request, callback) {       // request = {base, method, path, query, headers, data}
+        request.headers['Accept'] = "application/json";
+        request.headers['Content-Type'] = "application/json";
+        request.data = JSON.stringify(request.data);        // Fermata transports String as UTF-8 "text", Buffer/UInt8Array/Array as "bytes"
+        transport(request, function (err, response) {       // response = {status, headers, data}
+            if (!err) {
+                if (response.status.toFixed()[0] !== '2') {
+                    err = Error("Bad status code from server: " + response.status);
+                }
+                try {
+                    response = JSON.parse(response.data);
+                } catch (e) {
+                    err = e;
+                }
+            }
+            callback(err, response);
+        });
     };
-    fermata._extend(req.headers, {
-        'Content-Type': "application/json",
-        'Accept': "application/json"
-    });
-    fermata._extend(req.headers, info.headers);
-    req.basicAuth = this.basicAuth;
-    
-    transport.send(req, data, function (status, headers, buffer) {
-        //console.log(arguments);
-        if (status === null) {
-            return callback(headers);
-        }
-        
-        var error, object;
-        try {
-            object = JSON.parse(buffer);
-        } catch (e) {
-            error = e;
-            object = buffer;
-        }
-        if (status.toFixed()[0] !== '2') {
-            error = Error("Bad status code from server: " + status);
-        }
-        return callback(error, object);
-    });
-};
+});
