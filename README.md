@@ -10,7 +10,7 @@ Their servers define the latest and greatest available featureset.
 So why bother figuring out (or worse: maintaining!) an additional "wrapper library" layer over each of your favorite web APIs?
 
 Fermata magically provides one clean, native JavaScript library for every REST interface.
-It works in node.js, and it works in modern browsers (although using the property syntax requires FF4).
+It works in node.js, and it works in modern browsers (although using the property syntax requires FF4+).
 It's always got the REST interface's newest features, and its documentation is always the reference documentation.
 
 
