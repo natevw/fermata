@@ -196,7 +196,7 @@ fermata._stringForURL = function (url) {        // url={base:"",path:[],query:{}
             return encodeURIComponent(k) + ((v1 !== null) ? '=' + encodeURIComponent(v1) : '');
         }).join('&');
     }).join('&');
-    return url.base + p + ((q) ? '?' + q : '');
+    return url.base + '/' + p + ((q) ? '?' + q : '');
 };
 
 fermata._normalize = function (headers) {
@@ -238,17 +238,44 @@ fermata.registerPlugin("raw", function (transport, config) {
     return transport;
 });
 
-fermata.registerPlugin("api", function (transport, temp) {
-    // TODO: update tests, remove these config hacks
-    this.base = temp.url;
-    if (this.base.slice(-1) !== '/') {
-        this.base += "/";
-    }
+fermata.registerPlugin("json", function (transport, baseURL) {
+    this.base = baseURL;                        // this = initial URL = {base, path, query}
     return function (request, callback) {       // request = {base, method, path, query, headers, data}
         request.headers['Accept'] = "application/json";
         request.headers['Content-Type'] = "application/json";
         request.data = JSON.stringify(request.data);        // Fermata transports String as UTF-8 "text", Buffer/UInt8Array/Array as "bytes"
         transport(request, function (err, response) {       // response = {status, headers, data}
+            if (!err) {
+                if (response.status.toFixed()[0] !== '2') {
+                    err = Error("Bad status code from server: " + response.status);
+                }
+                try {
+                    response = JSON.parse(response.data);
+                } catch (e) {
+                    err = e;
+                }
+            }
+            callback(err, response);
+        });
+    };
+});
+
+
+// TODO: remove this in next version
+fermata.registerPlugin("api", function (transport, temp) {
+    var correctURL = temp.url.replace(/\/$/, '');
+    if (temp.user) {
+        correctURL = correctURL.replace(/\/\/(\w)/, '//' + temp.user + ':PASSWORD@$1');
+    }
+    console.warn("Using deprecated API! Please initialize with `fermata.json(\"" + correctURL + "\")`")
+    this.base = correctURL;
+    
+    // copy-pasted from new JSON plugin
+    return function (request, callback) {
+        request.headers['Accept'] = "application/json";
+        request.headers['Content-Type'] = "application/json";
+        request.data = JSON.stringify(request.data);
+        transport(request, function (err, response) {
             if (!err) {
                 if (response.status.toFixed()[0] !== '2') {
                     err = Error("Bad status code from server: " + response.status);
