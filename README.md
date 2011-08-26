@@ -1,48 +1,48 @@
 # Fermata #
 
-Fermata is a <del>node.js</del><ins>JavaScript</ins> library that lets you simply state your REST requests using JavaScript property "dot" syntax.
-
+Fermata is a <del>node.js</del><ins>JavaScript</ins> REST library that lets you simply state your HTTP requests using clean syntax.
 
 ## Why? ##
 
-Your REST service maintains authoritative documentation for their interface.
-Their servers define the latest and greatest available featureset.
-So why bother figuring out (or worse: maintaining!) an additional "wrapper library" layer over each of your favorite web APIs?
+Fermata magically provides a clean JavaScript interface for access to any REST interface.
 
-Fermata magically provides one clean, native JavaScript library for every REST interface.
-It works in node.js, and it works in modern browsers (although using the property syntax requires FF4+).
-It's always got the REST interface's newest features, and its documentation is always the reference documentation.
+Fermata works well in modern browsers and even better in [node.js](http://nodejs.org/).
+Its API naturally matches the authoritative HTTP documentation, so you always have access to each of your REST interfaces' latest and greatest features.
+The simple plugin interface makes it easy to provide site-specific defaults, and/or support servers that don't use the standard JSON data format.
+
+Fermata makes URLs so elegant, there is no need to use — or maintain! — some one-off "wrapper library" for every different service. The differences are subtle, but the result is magic!
 
 
 ## Magic? ##
 
 ### Let's GET started ###
 
-So the REST API reference says "Our service base URL is http://youraccount.example.com/api. To lookup Frobble data GET /v3/frobbles".
+So you need to fetch a JSON resource from "http://youraccount.example.com/api/v3/frobbles"?
+
 In Fermata, that's just:
 
-    var api = fermata.api({url:"http://youraccount.example.com/api"});
-    (api.v3.frobbles).get(function (err, result) {
+    var site = fermata.json("http://youraccount.example.com");
+    site.api.v3.frobbles.get(function (err, result) {
        console.log("Here are your frobbles, sir!", result);
     });
 
 ***Fermata turns URLs into native JavaScript objects!***
-Subpaths are "dot syntax" properties, and a `GET` request is as easy as passing your "return value" callback to the `.get()` method on any Fermata URL.
+Each path part becomes a property, and so slashes in HTTP paths simply turn into dot operators on JavaScript objects. When you pass a callback function, Fermata uses the last method call as the request's method.
 It really couldn't *get* much cleaner.
 
-Need to add query parameters? Append a dictionary object before providing the callback function:
+Need to add query parameters?
 
-    var newAPI = fermata.api({url:"http://youraccount.example.com"}).api.v4;
+    var newAPI = site.api.v4;
     newAPI.frobbles({ perPage: 10, page: myPageNum }).get(myPageHandler);
 
-This does a `GET` on `http://youraccount.example.com/api/v4/frobbles?perPage=10&page=N` and returns the result via the asyncronous `myPageHandler` callback function.
+This does a `GET` on `http://youraccount.example.com/api/v4/frobbles?perPage=10&page=N`, then asynchronously passes the response data to the `myPageHandler` callback function, parsed as an object.
 
 ### Browser behind the times? ###
 
-Currently, the example above will only work in node.js and Firefox 4.
-In browsers without JavaScript's upcoming [Proxy](http://wiki.ecmascript.org/doku.php?id=harmony:proxies) feature, you will need to use parentheses:
+Unfortunately, the examples above will only work in node.js and Firefox 4+. But don't worry!
+In browsers without JavaScript's upcoming [Proxy](http://wiki.ecmascript.org/doku.php?id=harmony:proxies) feature you just need to use parentheses to form URLs, instead of dots:
 
-    var newAPI = fermata.api({url:"http://youraccount.example.com"})('api')('v4');
+    var newAPI = site('api')('v4');
     newAPI('frobbles')({ perPage: 10, page: myPageNum }).get(myPageHandler);
 
 Note how the dot syntax does still work for the final `.get`; Fermata provides fallbacks for the basic HTTP methods until browsers catch up.
@@ -50,12 +50,13 @@ Note how the dot syntax does still work for the final `.get`; Fermata provides f
 
 ### PUT ###
 
-Okay? So your REST provider's documentation says "To teach a Whoozit new tricks, PUT them to /v3/whoozits/&lt;ID&gt;/repertoire":
+Of course, it's also easy to *update* a REST resource with Fermata. Let's set some configuration on "http://youraccount.example.com/api/v3/whoozits/&lt;ID&gt;/repertoire":
 
-    var api = fermata.api({url:"http://youraccount.example.com/api"});
-    (api.v3.whoozits[myFavouriteWhoozit.api_id].repertoire).put({ tricks: [1,2,3,4] }, function (error, result) {
+    (site.api.v3.whoozits[i].repertoire).put({
+        tricks: [1,2,3,4]
+    }, function (error, result) {
         if (!error) {
-            console.log("Whoozit configuration accepted.");
+            console.log("Configuration accepted for Whoozit #" + i);
         } else {
             console.warn(error);
         }
@@ -64,43 +65,83 @@ Okay? So your REST provider's documentation says "To teach a Whoozit new tricks,
 
 ### POST ###
 
-"To create a Quibblelog, POST it to /utils/quibblelogger":
+When the HTTP documentation says something like, "To create a Quibblelog, POST it to /utils/quibblelogger":
 
-    var utils = fermata.api({url:"http://youraccount.example.com/api"});
-    (utils.quibblelogger).post({ message: "All your base.", level: 'stern warning' }, someCallback);
+    site.utils.quibblelogger.post({ message: "All your base.", level: 'stern warning' }, someCallback);
+
+Or for cross-browser support:
+
+   site('utils')('quibblelogger').post({ message: "All your base.", level: 'stern warning' }, someCallback);
 
 Voilà!
 
 
 ## Plugins ##
 
-By default, Fermata is initialized with a base URL and simply sends a JavaScript object to the server as a JSON string and expects that the server will reply with JSON too.
-For many perfectly useful REST servers, this is too simple: they need to talk in XML, or require that every request be specially signed with a secret key, or maybe it's just that the base URL could be configured in higher-level terms.
-Enter plugins.
+Every time you initialize a new Fermata URL, you do so through a plugin. Fermata provides two built-in plugins:
+
+1. `json` — initialized with a base URL string, then simply sends a JavaScript object to the server as a JSON string and expects that the server will reply with JSON too.
+2. `raw` - gives more direct access, whatever text/byte data you pass gets sent verbatim and your callback gets the full response info. This is a handy way to start when adding new plugins (see below).
+
+Many useful REST servers might talk in XML, or require that every request be specially signed with a secret key. Or maybe you just want to build the base URL string from higher-level settings.
+
+Enter custom plugins.
 
 For example, many of the ideas in Fermata originated in a [node.js Chargify library](https://github.com/andyet/node-chargify) we wrote for their [payment management API](http://docs.chargify.com/api-introduction).
 
 Without plugins, setting up Fermata to connect to Chargify is totally possible...but kinda ugly:
 
-    
-    var chargifyAccount1 = chargify.wrapSite(site_name, api_key);
-    var chargifyAccount2 = fermata.api({url:"http://" + api_key + ":x@" + site_name + ".chargify.com"});
-    // ok now we have to choose which library to use...
+    var acct = fermata.json({url:"http://" + api_key + ":x@" + site_name + ".chargify.com"});
+
+With the old custom Chargify-specific library this was a lot cleaner:
+
+    var acct = chargify.wrapSite(site_name, api_key);
+
+...but of course if we stick with the old custom library, we then have to learn how to use its old custom interface (which was a bit confusing, and didn't support Fermata's dot syntax).
 
 Plugins give us the best of both worlds. Fermata's one magical native API, with useful service-specific smoke and mirrors hiding backstage:
 
-    var chargifyAccount = fermata.chargify({site_name:site_name, api_key:api_key});
+    var acct = fermata.chargify(site_name, api_key);
     // WHOOHOO NOW WE ARE MONEY MAKING!!!
 
 
-There's a tiny bit of setup to use them from node.js, since Fermata can't *actually* read your mind:
+There's a tiny bit of setup to use plugins from node.js, since Fermata can't *actually* read your mind:
 
     var f = require('fermata');
-    require('fermata-chargify').init(f, 'billing');     // installs Chargify plugin into our Fermata module, optionally with different name.
+    require('fermata-chargify').init(f, 'billing');     // installs Chargify plugin into our Fermata module, optionally with a custom name.
     
-    f.billing({site_name:site_name, api_key:api_key});
+    f.billing(site_name, api_key);
 
-In the browser, just include any plugins after the script tag for Fermata, and defaults will be used.
+In the browser, just include any plugins after the script tag for Fermata, and each plugin will be accessible through its default name.
+
+Since such a "fermata-chargify" plugin hasn't been published yet, we can just register its implementation directly:
+
+    fermata.registerPlugin('myChargify', function (transport, name, key) {
+        // setup our custom base URL
+        this.base = "http://" + key + ":x@" + name + ".chargify.com";
+
+        return function (request, callback) {
+            // we can make usage much cleaner by automatically appending this extension
+            request.path[request.path.length-1] += ".json";
+            
+            // the rest is "borrowed" from the built-in JSON plugin
+            request.headers['Accept'] = "application/json";
+            request.headers['Content-Type'] = "application/json";
+            request.data = JSON.stringify(request.data);
+            transport(request, function (err, response) {
+                if (!err) {
+                    if (response.status.toFixed()[0] !== '2') { err = Error("Bad status code from server: " + response.status); }
+                    try {
+                        response = JSON.parse(response.data);
+                    } catch (e) { err = e; }
+                }
+                callback(err, response);
+            });
+        };
+    });
+
+Plugin support is still young, and it might be nice to make it easier for plugins to build off of e.g. common JSON, OAuth, etc. foundations in the future.
+Take a look at the detailed documentation below for tips on publishing plugins that can be easily used from both node.js and the browser.
 
 
 ## Complete documentation ##
@@ -110,18 +151,18 @@ In the browser, just include any plugins after the script tag for Fermata, and d
 
 ### URL proxy ###
 
-* `fermata.api({url:base_url, [user, password]})` - create a URL proxy object for base_url
+* `fermata.json(base_url)` - create a URL proxy object for base_url using the built-in 'json' plugin
 * `()` - absolute URL as string
 * `.method([headers, [data,]] function)` - request targetting callback
+* `(string/array...[, object])` - general extension syntax, each type documented below
 * `(object)` - override query parameters (see $key:value details below)
 * `(array)` - extend URL with components (without encoding)
 * `(string[, string...])` - extend URL (with encoding)
 * `[string]` - extend URL (with encoding)
 
-
 Once you create a URL wrapper, you can extend it in various ways:
 
-    var api = fermata.api({url:"http://api.example.com:5984"});
+    var api = fermata.json({url:"http://api.example.com:5984"});
     var eg1 = api.database._design.app._view.by_date;
     var eg2 = api['database']['_design']['app']['_view']['by_date'];
     var eg3 = api("database")("_design")("app")("_view", "by_date");
@@ -137,10 +178,10 @@ At any point in the process, you can set query parameters (a leading '$' on a ke
     var faster_queries = api({ stale: 'ok' });
     var always_include_docs = faster_queries.database({ include_docs: true });
     var some_app = always_include_docs({ reduce: false })._design.app;
-    var recent_items = some_app._view.by_date({ $endkey: [2011, 4, 1] });
+    var recent_items = some_app(['_view/by_date'], { $endkey: [2011, 4, 1] });
     recent_items({ limit: 10 })() === "http://api.example.com:5984/database/_design/app/_view/by_date?stale=ok&include_docs=true&reduce=false&limit=10&endkey=%5B2011%2C4%2C1%5D";
 
-Then, presto! To make a request on a Fermata URL, simply provide your response callback to the JavaScript method corresponding to the HTTP verb:
+Then, presto! To make a request on any Fermata URL, simply provide your response callback to the JavaScript method corresponding to the HTTP verb:
     
     api.database.get(logging_callback);
     
@@ -154,14 +195,16 @@ Then, presto! To make a request on a Fermata URL, simply provide your response c
     api.database.copy({Destination: "new_database"}, null, logging_callback);
 
 
-### Writing plugins ###
+### Adding plugins ###
+
+* `fermata.registerPlugin(name, setupFunction)` - register a plugin initialization function (which should set this.base and must return a transport function)
 
 Fermata plugins should generally try to follow the following template:
 
     var fermata;
     (function () {
-        var plugin = function (transport, baseURL) {
-            this.base = baseURL;
+        var plugin = function (transport, baseURL) {                // A plugin is a setup function which receives a base "raw" HTTP transport, followed by each argument supplied to the fermata.plugin call.
+            this.base = baseURL;				    // ...this setup function can set default base/path/query items, then must return the (typically wrapped) request transport function.
             return function (request, callback) {                   // request = {base, method, path, query, headers, data}
                 request.headers['Accept'] = "application/json";
                 request.headers['Content-Type'] = "application/json";
@@ -191,7 +234,7 @@ Fermata plugins should generally try to follow the following template:
         }
     })();
 
-As of Fermata v0.6[alpha], this plugin API may still need some improvement (=change) but the basic idea is that Fermata can delegate the interesting high-level decisions to logic customized for a particular REST server interface.
+As of Fermata v0.6[beta], this plugin API may still need some improvement (=change) but the basic idea is that Fermata can easily delegate the interesting high-level decisions to logic customized for a particular REST server interface.
 
 
 ## Release Notes ##
