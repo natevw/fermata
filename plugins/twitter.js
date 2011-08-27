@@ -45,7 +45,7 @@ oauth.signatureBaseString = function (req, auth) {
     };
     pushQ(req.query);
     pushQ(auth, "isAuth");
-    if (req.headers['Content-Type'] === "application/x-www-form-urlencoded") {
+    if (req.data && req.headers['Content-Type'] === "application/x-www-form-urlencoded") {
         pushQ(req.data);
     }
     params = params.map(function (p) { return p.map(oauth.percentEncode); });
@@ -58,15 +58,22 @@ oauth.signatureBaseString = function (req, auth) {
     return [req.method, oauth.percentEncode(uri), oauth.percentEncode(params)].join('&');
 };
 
-oauth.authorizeHMAC = function (request, auth, secrets) {
-    auth.signature_method = "HMAC-SHA1";
+oauth.authorizeHMAC = function (request, auth, cred) {
+    var crypto = require('crypto');     // only node.js supported (browser leaks client credentials)
     
     // NOTE: by my understanding, nonce does not have to be cryptographically random, just unique
-    auth.timestamp = Date.now() / 1000;
-    auth.nonce = '' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16) + '';
+    auth.timestamp = 137131202;
+    auth.nonce = "chapoH";
+    //auth.timestamp = Date.now() / 1000;
+    //auth.nonce = '' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16) + '';
+    auth.signature_method = "HMAC-SHA1";
     
-    var baseString = oauth.baseString(request, auth);
-    auth.signature = "THEN A MIRACLE HAPPENS";  // TODO: miracle
+    // http://tools.ietf.org/html/rfc5849#section-3.4.2
+    var baseString = oauth.signatureBaseString(request, auth),
+        key = oauth.percentEncode(cred.client_secret) + '&' + oauth.percentEncode(cred.token_secret || ''),
+        hmac = crypto.createHmac('sha1', key);
+    hmac.update(baseString);
+    auth.signature = hmac.digest('base64');
     
     // http://tools.ietf.org/html/rfc5849#section-3.5.1
     return "OAuth " + Object.keys(auth).map(function (k) {
@@ -79,19 +86,19 @@ oauth.authorizeHMAC = function (request, auth, secrets) {
 };
 
 
-function twitterPlugin(transport, client_key, request_token, secrets) {
+function twitterPlugin(transport, cred) {    // credentials = {client, client_secret, token, token_secret}
     this.base = "https://api.twitter.com";
     
     return function (req, cb) {
-        var auth = {consumer_key:client_key};
-        if (request_token) {
-            auth.token = request_token;
+        var auth = {consumer_key:cred.client};
+        if (cred.token) {
+            auth.token = cred.token;
         }
         req.headers['Content-Type'] = "application/x-www-form-urlencoded";
-        req.headers['Authorization'] = oauth.authorizeHMAC(req, auth, secrets);
+        req.headers['Authorization'] = oauth.authorizeHMAC(req, auth, cred);
         // http://www.w3.org/TR/1998/REC-html40-19980424/interact/forms.html#h-17.13.4.1
         // http://www.w3.org/TR/html5/association-of-controls-and-forms.html#application-x-www-form-urlencoded-encoding-algorithm
-        req.data = oauth.listQuery(req.data).map(function (kv) {
+        req.data = req.data && oauth.listQuery(req.data).map(function (kv) {
             return encodeURIComponent(kv[0].replace(/ /g, '+')) + '=' + encodeURIComponent(kv[1].replace(/ /g, '+'));
         }).join("&");
         transport(req, cb);
@@ -103,3 +110,17 @@ var docs = "POST&http%3A%2F%2Fexample.com%2Frequest&a2%3Dr%2520b%26a3%3D2%2520q%
 console.log(ours);
 console.log(docs);
 console.log(ours===docs);
+
+
+exports.plugin = twitterPlugin;
+/*
+var tw = require('./plugins/twitter');
+var tp = tw.plugin(function (r) { console.log(r); }, {client:"", client_secret:"", token:"", token_secret:""});
+tp({base: "http://example.com", method:"POST", path:["request"], query:{b5:"=%3D", a3:"a", 'c@':'', a2:"r b"}, headers:{}, data:{c2:'', a3:"2 q"}});
+
+
+// when auth = {timestamp:137131202, nonce:"chapoH"} this matches http://tools.ietf.org/html/rfc5849#page-6
+var tw = require('./plugins/twitter');
+var tp = tw.plugin(function (r) { console.log(r); }, {client:"dpf43f3p2l4k3l03", client_secret:"kd94hf93k423kf44", token:"nnch734d00sl2jdk", token_secret:"pfkkdhi9sl3r4s00"});
+tp({base: "http://photos.example.net", method:"GET", path:["photos"], query:{file:"vacation.jpg", size:"original"}, headers:{}});
+*/
