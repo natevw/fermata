@@ -58,13 +58,20 @@ oauth.signatureBaseString = function (req, auth) {
     return [req.method, oauth.percentEncode(uri), oauth.percentEncode(params)].join('&');
 };
 
-oauth.authorizeHMAC = function (request, auth, cred) {
+oauth.authorizeHMAC = function (request, cred) {
     var crypto = require('crypto');     // only node.js supported (browser leaks client credentials)
     
+    var auth = {signature_method:"HMAC-SHA1"};
+    auth.consumer_key = cred.client;
+    if (cred.token) {
+        auth.token = cred.token;
+    }
+    if (cred.realm) {
+        auth.realm = cred.realm;
+    }
     // NOTE: by my understanding, nonce does not have to be cryptographically random, just unique
-    auth.timestamp = Date.now() / 1000;
-    auth.nonce = '' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16) + '';
-    auth.signature_method = "HMAC-SHA1";
+    auth.timestamp = cred.test_timestamp || (Date.now() / 1000);     // override via `cred` ONLY for testing purposes!
+    auth.nonce = cred.test_nonce || ('' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16) + '');
     
     // http://tools.ietf.org/html/rfc5849#section-3.4.2
     var baseString = oauth.signatureBaseString(request, auth),
@@ -83,17 +90,12 @@ oauth.authorizeHMAC = function (request, auth, cred) {
     }).join();
 };
 
-
 function twitterPlugin(transport, cred) {    // credentials = {client, client_secret, token, token_secret}
     this.base = "https://api.twitter.com";
     
     return function (req, cb) {
-        var auth = {consumer_key:cred.client};
-        if (cred.token) {
-            auth.token = cred.token;
-        }
         req.headers['Content-Type'] = "application/x-www-form-urlencoded";
-        req.headers['Authorization'] = oauth.authorizeHMAC(req, auth, cred);
+        req.headers['Authorization'] = oauth.authorizeHMAC(req, cred);
         // http://www.w3.org/TR/1998/REC-html40-19980424/interact/forms.html#h-17.13.4.1
         // http://www.w3.org/TR/html5/association-of-controls-and-forms.html#application-x-www-form-urlencoded-encoding-algorithm
         req.data = req.data && oauth.listQuery(req.data).map(function (kv) {
@@ -103,22 +105,6 @@ function twitterPlugin(transport, cred) {    // credentials = {client, client_se
     };
 }
 
-var ours = oauth.signatureBaseString({base: "http://example.com", method:"POST", path:["request"], query:{b5:"=%3D", a3:"a", 'c@':'', a2:"r b"}, headers:{"Content-Type":"application/x-www-form-urlencoded"}, data:{c2:'', a3:"2 q"}}, {consumer_key:"9djdj82h48djs9d2", token:"kkk9d7dh3k39sjv7", timestamp:137131201, nonce:"7d8f3e4a", signature_method:"HMAC-SHA1"});
-var docs = "POST&http%3A%2F%2Fexample.com%2Frequest&a2%3Dr%2520b%26a3%3D2%2520q%26a3%3Da%26b5%3D%253D%25253D%26c%2540%3D%26c2%3D%26oauth_consumer_key%3D9djdj82h48djs9d2%26oauth_nonce%3D7d8f3e4a%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D137131201%26oauth_token%3Dkkk9d7dh3k39sjv7";
-console.log(ours);
-console.log(docs);
-console.log(ours===docs);
-
-
+module.exports = oauth;
 exports.plugin = twitterPlugin;
-/*
-var tw = require('./plugins/twitter');
-var tp = tw.plugin(function (r) { console.log(r); }, {client:"", client_secret:"", token:"", token_secret:""});
-tp({base: "http://example.com", method:"POST", path:["request"], query:{b5:"=%3D", a3:"a", 'c@':'', a2:"r b"}, headers:{}, data:{c2:'', a3:"2 q"}});
 
-
-// when auth = {timestamp:137131202, nonce:"chapoH"} this matches http://tools.ietf.org/html/rfc5849#page-6
-var tw = require('./plugins/twitter');
-var tp = tw.plugin(function (r) { console.log(r); }, {client:"dpf43f3p2l4k3l03", client_secret:"kd94hf93k423kf44", token:"nnch734d00sl2jdk", token_secret:"pfkkdhi9sl3r4s00"});
-tp({base: "http://photos.example.net", method:"GET", path:["photos"], query:{file:"vacation.jpg", size:"original"}, headers:{}});
-*/
