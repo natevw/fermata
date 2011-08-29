@@ -90,21 +90,4 @@ oauth.authorizeHMAC = function (request, cred) {
     }).join();
 };
 
-function twitterPlugin(transport, cred) {    // credentials = {client, client_secret, token, token_secret}
-    this.base = "https://api.twitter.com";
-    
-    return function (req, cb) {
-        req.headers['Content-Type'] = "application/x-www-form-urlencoded";
-        req.headers['Authorization'] = oauth.authorizeHMAC(req, cred);
-        // http://www.w3.org/TR/1998/REC-html40-19980424/interact/forms.html#h-17.13.4.1
-        // http://www.w3.org/TR/html5/association-of-controls-and-forms.html#application-x-www-form-urlencoded-encoding-algorithm
-        req.data = req.data && oauth.listQuery(req.data).map(function (kv) {
-            return encodeURIComponent(kv[0].replace(/ /g, '+')) + '=' + encodeURIComponent(kv[1].replace(/ /g, '+'));
-        }).join("&");
-        transport(req, cb);
-    };
-}
-
 module.exports = oauth;
-exports.plugin = twitterPlugin;
-
