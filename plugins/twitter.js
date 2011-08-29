@@ -62,10 +62,8 @@ oauth.authorizeHMAC = function (request, auth, cred) {
     var crypto = require('crypto');     // only node.js supported (browser leaks client credentials)
     
     // NOTE: by my understanding, nonce does not have to be cryptographically random, just unique
-    auth.timestamp = 137131202;
-    auth.nonce = "chapoH";
-    //auth.timestamp = Date.now() / 1000;
-    //auth.nonce = '' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16) + '';
+    auth.timestamp = Date.now() / 1000;
+    auth.nonce = '' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16) + '';
     auth.signature_method = "HMAC-SHA1";
     
     // http://tools.ietf.org/html/rfc5849#section-3.4.2
