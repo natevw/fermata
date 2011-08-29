@@ -3,7 +3,7 @@ var oauth = require('./oauth');
 function _formEncode(data) {
     // see http://www.w3.org/TR/1998/REC-html40-19980424/interact/forms.html#h-17.13.4.1 and
     // http://www.w3.org/TR/html5/association-of-controls-and-forms.html#application-x-www-form-urlencoded-encoding-algorithm
-    return oauth.listQuery(req.data).map(function (kv) {
+    return oauth.listQuery(data).map(function (kv) {
         return encodeURIComponent(kv[0]).replace(/%20/g, '+') + '=' + encodeURIComponent(kv[1]).replace(/%20/g, '+');
     }).join("&");
 }
