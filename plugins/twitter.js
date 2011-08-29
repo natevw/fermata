@@ -33,3 +33,19 @@ function twitterPlugin(transport, cred) {    // credentials = {client, client_se
 }
 
 exports.plugin = twitterPlugin;
+
+
+/*
+var f = require('./fermata'),
+    t = require('./plugins/twitter');
+f.registerPlugin('twitter', t.plugin);
+
+var twebz = f.twitter({client:"", client_secret:"", token:"", token_secret:""});
+
+twebz.statuses.home_timeline.get(function (e, d) {
+    console.log(e,d);
+});
+
+twebz.statuses.update.post({status:"FRIST TWEET from Fermata!!1! (Using new OAuth stuff, in progress on https://github.com/andyet/fermata/tree/plugins branch)"}, function (e,d) {console.log(e,d);})
+
+*/
