@@ -15,7 +15,7 @@ function twitterPlugin(transport, cred) {    // credentials = {client, client_se
         req.headers['Accept'] = "application/json";
         req.headers['Content-Type'] = "application/x-www-form-urlencoded";
         req.headers['Authorization'] = oauth.authorizeHMAC(req, cred);
-        req.data = req.data && _formEncode(data);
+        req.data = req.data && _formEncode(req.data);
         transport(req, function (err, response) {
             if (!err) {
                 if (response.status.toFixed()[0] !== '2') {
