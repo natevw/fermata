@@ -97,23 +97,24 @@ fermata._nodeTransport = function (request, callback) {
     var url = fermata._stringForURL(request),
         url_parts = require('url').parse(url),
         headers = {},
-        data = null, textResponse = false;
+        data = null, textResponse = true;
     
     if (url_parts.auth) {
         headers['Authorization'] = 'Basic ' + new Buffer(url_parts.auth).toString('base64');
     }
     fermata._extend(headers, request.headers);
     
+    console.log(typeof(request.data));
     if (request.data && request.method === 'GET' || request.method === 'HEAD') {
         /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
            avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
         console.warn("Ignoring data passed to GET or HEAD request.");
     } else if (typeof(request.data) === 'string') {
-        textResponse = true;
         data = new Buffer(request.data, 'utf8');
         // TODO: follow XHR algorithm for charset replacement if Content-Type already set
         headers['Content-Type'] || (headers['Content-Type'] = "text/plain;charset=UTF-8");
     } else if (request.data && request.data.length) {
+        textResponse = false;
         data = new Buffer(request.data);
     }
     
