@@ -328,7 +328,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         }
         transport(request, function (err, response) {
             var accType = request.headers['Accept'],
-                resType = response.headers['Content-Type'],
+                resType = response && response.headers['Content-Type'],
                 decoder = (TYPES[accType] || TYPES[resType] || [])[1];
             if (decoder) {
                 try {
