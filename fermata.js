@@ -41,7 +41,7 @@ fermata.registerPlugin = function (name, plugin) {
 
 fermata._makeNativeURL = function (transport, url) {
     return fermata._wrapTheWrapper(function () {
-        var args = [].splice.call(arguments, 0),
+        var args = [].slice.call(arguments),
             lastArg = fermata._typeof2(args[args.length-1]);
         if (lastArg === 'undefined') {
             return fermata._stringForURL(url);
