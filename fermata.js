@@ -279,7 +279,6 @@ fermata.registerPlugin('raw', function (transport, config) {
     return transport;
 });
 
-
 fermata.registerPlugin('statusCheck', function (transport) {
     return function (request, callback) {
         transport(request, function (err, response) {
@@ -291,8 +290,7 @@ fermata.registerPlugin('statusCheck', function (transport) {
     };
 });
 
-fermata.registerPlugin('dataTypes', function (transport) {
-    // TODO: allow config of types
+fermata.registerPlugin('autoConvert', function (transport, defaultType) {
     var TYPES = {
         "text/plain" : [
             function (d) { return '' + d; },
@@ -317,6 +315,10 @@ fermata.registerPlugin('dataTypes', function (transport) {
         ]
     };
     return function (request, callback) {
+        if (defaultType) {
+            request.headers['Content-Type'] || (request.headers['Content-Type'] = defaultType);
+            request.headers['Accept'] || (request.headers['Accept'] = defaultType);
+        }
         var reqType = request.headers['Content-Type'],
             encoder = (TYPES[reqType] || [])[0];
         if (encoder) {
@@ -340,12 +342,7 @@ fermata.registerPlugin('dataTypes', function (transport) {
 
 fermata.registerPlugin('json', function (transport, baseURL) {
     this.base = baseURL;
-    transport = transport.using("statusCheck").using("dataTypes");
-    return function (request, callback) {
-        request.headers['Accept'] = "application/json";
-        request.headers['Content-Type'] = "application/json";
-        transport(request, callback);
-    };
+    return transport.using('statusCheck').using('autoConvert', "application/json");
 });
 
 
