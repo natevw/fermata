@@ -1,39 +1,34 @@
-var oauth = {};
+// NOTE: when running under node.js, Fermata includes this plugin automagically.
+//       This file is NOT needed (and will not work) in the browser: your client credentials are not safe there!
 
-oauth.percentEncode = function (s) {
-    return encodeURIComponent(s).replace(/!/g, '%21').replace(/\*/g, '%2A').replace(/'|'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29');
+var fermata;
+var oauth = function (transport, cred) {            // credentials = {client, client_secret[, token, token_secret]}
+    return function (req, callback) {
+        req.headers['Authorization'] = oauth.authorizeHMAC(req, cred);
+        transport(req, callback);
+    }
+};
+oauth.init = function (f) {
+    fermata = f;
+    return module.exports;
 };
 
-oauth.listQuery = function (q) {
-    var list = [];
-    Object.keys(q).forEach(function (k) {
-        var v = q[k];
-        if (k[0] === '$') {
-            k = k.slice(1);
-            if (k[0] !== '$') {
-                v = JSON.stringify(v);
-            }
-        }
-        [].concat(v).forEach(function (v) {
-            list.push([k, (v !== null) ? ''+v : '']);
-        });
-    });
-    return list;
+oauth.percentEncode = function (s) {
+    // http://tools.ietf.org/html/rfc5849#section-3.6
+    return encodeURIComponent(s).replace(/!/g, '%21').replace(/\*/g, '%2A').replace(/'|'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29');
 };
 
 oauth.signatureBaseString = function (req, auth) {
     // http://tools.ietf.org/html/rfc5849#section-3.4.1
     
     // base string URI
-    var uri = req.base + '/' + req.path.map(function (c) {
-        return (c.join) ? c.join('/') : encodeURIComponent(c);
-    }).join('/');
-    // TODO: make sure scheme/host are lowercase, remove default ports if necessary
+    var uri = fermata._stringForURL({base:req.base, path:req.path, query:{}});
+    /* TODO: make sure scheme/host are lowercase, remove default ports if included */
     
     // request parameters
     var params = [];
     var pushQ = function (q, isAuth) {
-        oauth.listQuery(q).forEach(function (kv) {
+        fermata._flatten(q).forEach(function (kv) {
             if (isAuth) {
                 if (kv[0] === "realm") {
                     return;
