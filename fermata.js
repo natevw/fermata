@@ -195,19 +195,36 @@ fermata._stringForURL = function (url) {        // url={base:"",path:[],query:{}
     var p = url.path.map(function (c) {
         return (c.join) ? c.join('/') : encodeURIComponent(c);
     }).join('/');
-    var q = Object.keys(url.query).map(function (k) {
-        var v = url.query[k];
+    var q = fermata._flatten(url.query).map(function (kv) {
+        return encodeURIComponent(kv[0]) + ((kv[1] !== null) ? '=' + encodeURIComponent(kv[1]) : '');
+    }).join("&");
+    return url.base + p + ((q) ? '?' + q : '');
+};
+
+fermata._flatten = function (q) {
+    var list = [];
+    Object.keys(q).forEach(function (k) {
+        var v = q[k];
         if (k[0] === '$') {
             k = k.slice(1);
             if (k[0] !== '$') {
                 v = JSON.stringify(v);
             }
         }
-        return [].concat(v).map(function (v1) {
-            return encodeURIComponent(k) + ((v1 !== null) ? '=' + encodeURIComponent(v1) : '');
-        }).join('&');
-    }).join('&');
-    return url.base + p + ((q) ? '?' + q : '');
+        [].concat(v).forEach(function (v) {
+            list.push([k, v]);
+        });
+    });
+    return list;
+};
+
+fermata._unflatten = function (l) {
+    var obj = {};
+    l.forEach(function (kv) {
+        var k = kv[0], v = kv[1];
+        obj[k] = obj.hasOwnProperty(k) ? [].concat(obj[k], v) : v;
+    });
+    return obj;
 };
 
 fermata._normalize = function (headers) {
@@ -245,32 +262,75 @@ if (typeof window === 'undefined') {
 }
 
 
-fermata.registerPlugin("_base", function () {
-    return function (request, callback) {
+fermata.registerPlugin('_base', function () {
+    /*
+     this = baseURL = {base, path, query}
+     request = {base, method, path, query, headers, data}
+     callback = function(error, response)
+     response = {status, headers, data}
+    */
+    return function (request, callback) {          
         return fermata._transport(request, callback);
     };
 });
 
-fermata.registerPlugin("raw", function (transport, config) {
+fermata.registerPlugin('raw', function (transport, config) {
     fermata._extend(this, config);
     return transport;
 });
 
-fermata.registerPlugin("json", function (transport, baseURL) {
-    this.base = baseURL;                        // this = initial URL = {base, path, query}
-    return function (request, callback) {       // request = {base, method, path, query, headers, data}
-        request.headers['Accept'] = "application/json";
-        request.headers['Content-Type'] = "application/json";
-        request.data = JSON.stringify(request.data);        // Fermata transports String as UTF-8 "text", Buffer/UInt8Array/Array as "bytes"
-        transport(request, function (err, response) {       // response = {status, headers, data}
-            if (!err) {
-                if (response.status.toFixed()[0] !== '2') {
-                    err = Error("Bad status code from server: " + response.status);
-                }
+
+fermata.registerPlugin('statusCheck', function (transport) {
+    return function (request, callback) {
+        transport(request, function (err, response) {
+            if (!err && response.status.toFixed()[0] !== '2') {
+                err = Error("Bad status code from server: " + response.status);
+            }
+            callback(err, response);
+        });
+    };
+});
+
+fermata.registerPlugin('dataTypes', function (transport) {
+    // TODO: allow config of types
+    var TYPES = {
+        "text/plain" : [
+            function (d) { return '' + d; },
+            function (d) { return '' + d; }
+        ],
+        "application/json": [
+            JSON.stringify,
+            JSON.parse
+        ],
+        "application/x-www-form-urlencoded": [
+            // see http://www.w3.org/TR/html5/association-of-controls-and-forms.html#application-x-www-form-urlencoded-encoding-algorithm
+            function (data) {
+                return fermata._flatten(data).map(function (kv) {
+                    return encodeURIComponent(kv[0]).replace(/%20/g, '+') + '=' + encodeURIComponent(kv[1]).replace(/%20/g, '+');
+                }).join("&");
+            },
+            function (data) {
+                return fermata._unflatten(data.split("&").map(function (kv) {
+                    return kv.split("=").map(function (c) { return decodeURIComponent(c.replace(/\+/g, ' ')); });
+                }));
+            }
+        ]
+    };
+    return function (request, callback) {
+        var reqType = request.headers['Content-Type'],
+            encoder = (TYPES[reqType] || [])[0];
+        if (encoder) {
+            request.data = encoder(request.data);
+        }
+        transport(request, function (err, response) {
+            var accType = request.headers['Accept'],
+                resType = response.headers['Content-Type'],
+                decoder = (TYPES[accType] || TYPES[resType] || [])[1];
+            if (decoder) {
                 try {
-                    response = JSON.parse(response.data);
+                    response = decoder(response.data);
                 } catch (e) {
-                    err = e;
+                    err || (err = e);
                 }
             }
             callback(err, response);
@@ -278,9 +338,19 @@ fermata.registerPlugin("json", function (transport, baseURL) {
     };
 });
 
+fermata.registerPlugin('json', function (transport, baseURL) {
+    this.base = baseURL;
+    transport = transport.using("statusCheck").using("dataTypes");
+    return function (request, callback) {
+        request.headers['Accept'] = "application/json";
+        request.headers['Content-Type'] = "application/json";
+        transport(request, callback);
+    };
+});
+
 
 // TODO: remove this in next version
-fermata.registerPlugin("api", function (transport, temp) {
+fermata.registerPlugin('api', function (transport, temp) {
     var correctURL = temp.url.replace(/\/$/, '');
     if (temp.user) {
         correctURL = correctURL.replace(/\/\/(\w)/, '//' + temp.user + ':PASSWORD@$1');
