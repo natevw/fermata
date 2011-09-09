@@ -348,32 +348,13 @@ fermata.registerPlugin('json', function (transport, baseURL) {
 });
 
 
-// TODO: remove this in next version
+// TODO: remove this completely before any 1.0 release
 fermata.registerPlugin('api', function (transport, temp) {
     var correctURL = temp.url.replace(/\/$/, '');
     if (temp.user) {
         correctURL = correctURL.replace(/\/\/(\w)/, '//' + temp.user + ':PASSWORD@$1');
     }
-    console.warn("Using deprecated API! Please initialize with `fermata.json(\"" + correctURL + "\")`")
+    console.warn("Using deprecated API: please initialize with `fermata.json(\"" + correctURL + "\")` instead. This plugin will be disabled soon!");
     this.base = correctURL;
-    
-    // copy-pasted from new JSON plugin
-    return function (request, callback) {
-        request.headers['Accept'] = "application/json";
-        request.headers['Content-Type'] = "application/json";
-        request.data = JSON.stringify(request.data);
-        transport(request, function (err, response) {
-            if (!err) {
-                if (response.status.toFixed()[0] !== '2') {
-                    err = Error("Bad status code from server: " + response.status);
-                }
-                try {
-                    response = JSON.parse(response.data);
-                } catch (e) {
-                    err = e;
-                }
-            }
-            callback(err, response);
-        });
-    };
+    return transport.using('statusCheck').using('autoConvert', "application/json");
 });
