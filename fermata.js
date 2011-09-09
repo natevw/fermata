@@ -258,6 +258,7 @@ if (typeof window === 'undefined') {
         fermata._nodeProxy = require('node-proxy');
     }
     exports.registerPlugin = fermata.registerPlugin;
+    exports.plugins = fermata.plugins;
 } else {
     fermata._transport = fermata._xhrTransport;
 }
