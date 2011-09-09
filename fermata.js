@@ -322,7 +322,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         var reqType = request.headers['Content-Type'],
             encoder = (TYPES[reqType] || [])[0];
         if (encoder) {
-            request.data = encoder(request.data);
+            request.data = request.data && encoder(request.data);
         }
         transport(request, function (err, response) {
             var accType = request.headers['Accept'],
