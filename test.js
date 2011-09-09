@@ -19,7 +19,7 @@ if (typeof window === 'undefined') {
 }
 
 u = f.raw({base:"http://example.com"});
-if (Proxy) assert.equal(u(), "http://example.com/");
+if (Proxy) assert.equal(u(), "http://example.com");
 if (Proxy) assert.equal(u.folder(), "http://example.com/folder");
 if (Proxy) assert.equal(u.folder1.folder2(), "http://example.com/folder1/folder2");
 
@@ -30,10 +30,10 @@ assert.equal(u(['_design','app','_view/by_date'])(), "http://localhost:5984/db/_
 assert.equal(u(['_design/app/_view/by_date'])(), "http://localhost:5984/db/_design/app/_view/by_date");
 
 u = f.raw({base:"dotcom"});
-assert.equal(u({q:"search term"})(), "dotcom/?q=search%20term");
-assert.equal(u({opt:[0,1,2]})(), "dotcom/?opt=0&opt=1&opt=2");
-assert.equal(u({$key:[1,2,3]})(), "dotcom/?key=%5B1%2C2%2C3%5D");
-assert.equal(u({$$opt:[1,'two',3]})(), "dotcom/?%24opt=1&%24opt=two&%24opt=3");
+assert.equal(u({q:"search term"})(), "dotcom?q=search%20term");
+assert.equal(u({opt:[0,1,2]})(), "dotcom?opt=0&opt=1&opt=2");
+assert.equal(u({$key:[1,2,3]})(), "dotcom?key=%5B1%2C2%2C3%5D");
+assert.equal(u({$$opt:[1,'two',3]})(), "dotcom?%24opt=1&%24opt=two&%24opt=3");
 
 u = f.raw({base:"site"});
 if (Proxy) assert.equal(u.path.subpath({q1:"search", q2:"term"})(), "site/path/subpath?q1=search&q2=term");

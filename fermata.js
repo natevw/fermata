@@ -29,7 +29,7 @@ var fermata = {};
 
 fermata.registerPlugin = function (name, plugin) {
     fermata[name] = function () {
-        var url = {base:"", path:[], query:{}}, args = [];
+        var url = {base:"", path:[""], query:{}}, args = [];
         args.push(fermata._transport);
         [].push.apply(args, arguments);
         return fermata._makeNativeURL(plugin.apply(url, args), url);
@@ -196,7 +196,7 @@ fermata._stringForURL = function (url) {        // url={base:"",path:[],query:{}
             return encodeURIComponent(k) + ((v1 !== null) ? '=' + encodeURIComponent(v1) : '');
         }).join('&');
     }).join('&');
-    return url.base + '/' + p + ((q) ? '?' + q : '');
+    return url.base + p + ((q) ? '?' + q : '');
 };
 
 fermata._normalize = function (headers) {
