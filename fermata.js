@@ -25,18 +25,29 @@ THE SOFTWARE.
 
 var Proxy;  // FEEEEL THE POWAH! FEEEEEEEEEEL IT!!!!
 
-var fermata = {};
+var fermata = {plugins:{}};
 
 fermata.registerPlugin = function (name, plugin) {
+    fermata.plugins[name] = plugin;
     fermata[name] = function () {
-        var url = {base:"", path:[""], query:{}}, args = [];
-        args.push(fermata._transport);
-        [].push.apply(args, arguments);
-        return fermata._makeNativeURL(plugin.apply(url, args), url);
+        var baseURL = {base:"", path:[""], query:{}},
+            args = [name].concat([].slice.call(arguments)),
+            transport = fermata._makeTransport.call(baseURL, "_base").using.apply(null, args);
+        return fermata._makeNativeURL(transport, baseURL);
     };
     if (fermata._useExports) {
         exports[name] = fermata[name];
     }
+};
+
+fermata._makeTransport = function (name, args) {
+    var baseURL = this, transport = fermata.plugins[name].apply(baseURL, args);
+    transport.using = function () {
+        var plugin = arguments[0];
+        arguments[0] = transport;
+        return fermata._makeTransport.call(baseURL, plugin, arguments);
+    };
+    return transport;
 };
 
 fermata._makeNativeURL = function (transport, url) {
@@ -232,6 +243,13 @@ if (typeof window === 'undefined') {
 } else {
     fermata._transport = fermata._xhrTransport;
 }
+
+
+fermata.registerPlugin("_base", function () {
+    return function (request, callback) {
+        return fermata._transport(request, callback);
+    };
+});
 
 fermata.registerPlugin("raw", function (transport, config) {
     fermata._extend(this, config);
