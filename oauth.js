@@ -22,7 +22,7 @@ oauth.signatureBaseString = function (req, auth) {
     // http://tools.ietf.org/html/rfc5849#section-3.4.1
     
     // base string URI
-    var uri = fermata._stringForURL({base:req.base, path:req.path, query:{}});
+    var uri = fermata._stringForURL({base:(req.oauth_base || req.base), path:req.path, query:{}});
     /* TODO: make sure scheme/host are lowercase, remove default ports if included */
     
     // request parameters
