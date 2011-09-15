@@ -244,11 +244,11 @@ As of Fermata v0.6[beta], this plugin API may still need some improvement (=chan
 * 0.3 - URL.method() redesign
 * 0.5 - Browser support
 * 0.6 - Plugin architecture
-
+* 0.7 - Plugin chaining
 
 ## Roadmap ##
 
-* 0.7 - more plugin samples+refinement?
+* 0.8 - multipart/binary requests?
 * ... - [feedback welcome](https://github.com/andyet/fermata/issues)!
 
 
