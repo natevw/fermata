@@ -146,10 +146,16 @@ fermata._nodeTransport = function (request, callback) {
         });
         res.on('end', function () {
             if (textResponse) {
-                // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
+                // TODO: (below too) follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
             callback(null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
+        });
+        res.on('close', function (err) {
+            if (textResponse) {
+                responseData = responseData.toString('utf8');
+            }
+            callback(Error("Connection dropped (" + err + ")"), {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
         });
     });
 };
