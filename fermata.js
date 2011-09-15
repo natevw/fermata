@@ -115,6 +115,7 @@ fermata._nodeTransport = function (request, callback) {
     }
     fermata._extend(headers, request.headers);
     
+    console.log(typeof(request.data));
     if (request.data && request.method === 'GET' || request.method === 'HEAD') {
         /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
            avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
@@ -156,10 +157,16 @@ fermata._nodeTransport = function (request, callback) {
         });
         res.on('end', function () {
             if (textResponse) {
-                // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
+                // TODO: (below too) follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
             callback(null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
+        });
+        res.on('close', function (err) {
+            if (textResponse) {
+                responseData = responseData.toString('utf8');
+            }
+            callback(Error("Connection dropped (" + err + ")"), {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
         });
     });
 };
