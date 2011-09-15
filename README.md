@@ -195,46 +195,53 @@ Then, presto! To make a request on any Fermata URL, simply provide your response
     api.database.copy({Destination: "new_database"}, null, logging_callback);
 
 
+### Default plugins ###
+
+
+Fermata provides two high-level plugins:
+
+* `fermata.json("http://example.com")` - send/receive data objects as JSON
+* `fermata.raw({base:"http://example.com"})` - expects string request data, returns raw response from the platform-level transport, e.g. `yourCallback(null, {status:418 headers:{}, data:"..."})`
+
+There are also several builtin plugins that are primarily intended for chaining within your own plugins:
+
+* `fermata.statusCheck()` - simple plugin that sets the callback error parameter if the response status code is not 2xx.
+* `fermata.autoConvert([defaultType])` - converts request/response data between native JS data objects and common HTTP content types, using header fields (currently supports: "text/plain", "application/json", "application/x-www-form-urlencoded")
+* `fermata.oauth({client, client_secret[, token, token_secret]})` - adds an OAuth authorization signature to the requests it transports
+
+
 ### Adding plugins ###
 
-* `fermata.registerPlugin(name, setupFunction)` - register a plugin initialization function (which should set this.base and must return a transport function)
+* `fermata.registerPlugin(name, setupFunction)` - register a plugin initialization function that receives the platform transport function. This function should set this.base and must return a (typically wrapped/extended) transport function.
 
-Fermata plugins should generally try to follow the following template:
+When the user calls `fermata.yourplugin(...)` to create a new URL wrapper, Fermata sets up a base "transport" function for your plugin to use and calls `yourSetupFunction(transport, ...)` with a `this` object set to an empty "internal URL" dictionary.
+You can *chain* plugins with the `.using(name, ...)` method on the transport object you receive. For example, if you want your requests to be processed by  
+The "internal URL" contains a subset of the request parameters (`{base:"", path:[""], query:{}}`) that the user will be extending through Fermata's API. You can add defaults in your setup function, setting `this.base` to a specific service's API root for example.
+
+Fermata plugins intended for cross-platform use should generally try to follow the following template:
 
     var fermata;
     (function () {
         var plugin = function (transport, baseURL) {                // A plugin is a setup function which receives a base "raw" HTTP transport, followed by each argument supplied to the fermata.plugin call.
             this.base = baseURL;				    // ...this setup function can set default base/path/query items, then must return the (typically wrapped) request transport function.
+            transport = transport.using('statusCheck').using('autoConvert', "application/json");		// any registered plugin may be used
             return function (request, callback) {                   // request = {base, method, path, query, headers, data}
-                request.headers['Accept'] = "application/json";
-                request.headers['Content-Type'] = "application/json";
-                request.data = JSON.stringify(request.data);        // Fermata transports String as UTF-8 "text", Buffer/UInt8Array/Array as "bytes"
-                transport(request, function (err, response) {       // response = {status, headers, data}
-                    if (!err) {
-                        if (response.status.toFixed()[0] !== '2') {
-                            err = Error("Bad status code from server: " + response.status);
-                        }
-                        try {
-                            response = JSON.parse(response.data);
-                        } catch (e) {
-                            err = e;
-                        }
-                    }
+                req.path[req.path.length - 1] += ".json";           // NOTE: automatically adding an extension like this breaks the URL string Fermata automatically returns on `()` calls, and so this pattern will likely need to be replaced somehow before v1.0
+                transport(req, function (err, response) {           // response = {status, headers, data}
                     callback(err, response);
                 });
             };
         };
         
         // some boilerplate to deal with browser vs. CommonJS
-        plugin.name = "json";
         if (fermata) {
-            fermata.registerPlugin(plugin.name, plugin);
+            fermata.registerPlugin("jsonExtension", plugin);
         } else {
-            exports.init = function (fermata, name) { return fermata.registerPlugin(name || plugin.name, plugin); }
+            module.exports = plugin;
         }
     })();
 
-As of Fermata v0.6[beta], this plugin API may still need some improvement (=change) but the basic idea is that Fermata can easily delegate the interesting high-level decisions to logic customized for a particular REST server interface.
+As of Fermata v0.7, this plugin API may still need some improvement (=change) but the basic idea is that Fermata can easily delegate the interesting high-level decisions to logic customized for a particular REST server interface.
 
 
 ## Release Notes ##
