@@ -228,7 +228,7 @@ fermata._unflatten = function (l) {
     var obj = {};
     l.forEach(function (kv) {
         var k = kv[0], v = kv[1];
-        obj[k] = obj.hasOwnProperty(k) ? [].concat(obj[k], v) : v;
+        obj[k] = {}.hasOwnProperty.call(obj, k) ? [].concat(obj[k], v) : v;
     });
     return obj;
 };
