@@ -22,7 +22,7 @@ oauth.signatureBaseString = function (req, auth) {
     // http://tools.ietf.org/html/rfc5849#section-3.4.1
     
     // base string URI
-    var uri = fermata._stringForURL({base:(req.oauth_base || req.base), path:req.path, query:{}});
+    var uri = fermata._stringForURL({base:(req._oauth_base || req.base), path:req.path, query:{}});
     /* TODO: make sure scheme/host are lowercase, remove default ports if included */
     
     // request parameters
@@ -42,6 +42,9 @@ oauth.signatureBaseString = function (req, auth) {
     pushQ(auth, "isAuth");
     if (req.data && req.headers['Content-Type'] === "application/x-www-form-urlencoded") {
         pushQ(req.data);
+    }
+    if (req._oauth_params) {
+        pushQ(req._oauth_params);
     }
     params = params.map(function (p) { return p.map(oauth.percentEncode); });
     var cmp = function (a, b) { return (a < b) ? -1 : ((a > b) ? 1 : 0); };
