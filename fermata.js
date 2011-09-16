@@ -313,7 +313,7 @@ fermata._nodeMultipartEncode = function (data) {
     function q(s) { return '"' + s.replace(/"|"/g, "%22").replace(/\r\n|\r|\n/g, ' ') + '"'; }
     fermata._flatten(data).forEach(function (kv) {
         push("--" + segno);
-        if (kv[1].hasOwnProperty('data')) {
+        if ({}.hasOwnProperty.call(kv[1], 'data')) {
             var file = kv[1];
             push("Content-Disposition: form-data; name=" + q(kv[0]) + "; filename=" + q(file.name || "blob"));
             push("Content-Type: " + (file.type || "application/octet-stream"));
