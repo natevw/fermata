@@ -303,18 +303,22 @@ fermata._nodeMultipartEncode = function (data) {
     var segno = '' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16);
     this.headers['Content-Type'] && (this.headers['Content-Type'] += "; boundary=" + segno);
     
-    var buffer = [];
-    function push(l) { buffer.push(l); }
-    function q(s) { return '"' + s.replace(/"|"/g, "%22").replace(/\r\n|\r|\n/g, ' ') + '"' }
+    var buffer = new Buffer(0);
+    function push(l) {      // NOTE: Fermata simply isn't gonna win at humongous transfers.
+        var prevBuffer = buffer, newBuffer = (l instanceof Buffer) ? l : new Buffer(''+l);
+        buffer = new Buffer(prevBuffer.length + newBuffer.length + 2);
+        prevBuffer.copy(buffer); newBuffer.copy(buffer, prevBuffer.length);
+        buffer.write("\r\n", buffer.length - 2);
+    }
+    function q(s) { return '"' + s.replace(/"|"/g, "%22").replace(/\r\n|\r|\n/g, ' ') + '"'; }
     fermata._flatten(data).forEach(function (kv) {
         push("--" + segno);
         if (kv[1].hasOwnProperty('data')) {
             var file = kv[1];
             push("Content-Disposition: form-data; name=" + q(kv[0]) + "; filename=" + q(file.name || "blob"));
             push("Content-Type: " + (file.type || "application/octet-stream"));
-            push("Content-Transfer-Encoding: base64");  // TODO: sounds like prettymuchmost servers ignore this...
             push('');
-            push(file.data.toString('base64'));
+            push(file.data);
         } else {
             push("Content-Disposition: form-data; name=" + q(kv[0]));
             push('');
@@ -322,7 +326,7 @@ fermata._nodeMultipartEncode = function (data) {
         }
     });
     push("--" + segno + "--");
-    return buffer.join("\r\n");
+    return buffer;
 };
 
 fermata._xhrMultipartEncode = function (data) {
