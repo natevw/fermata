@@ -298,6 +298,41 @@ fermata.registerPlugin('statusCheck', function (transport) {
     };
 });
 
+// see http://www.w3.org/TR/html5/association-of-controls-and-forms.html#multipart-form-data
+fermata._nodeMultipartEncode = function (data) {
+    var segno = '' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16);
+    this.headers['Content-Type'] && (this.headers['Content-Type'] += "; boundary=" + segno);
+    
+    var buffer = [];
+    function push(l) { buffer.push(l); }
+    function q(s) { return '"' + s.replace(/"|"/g, "%22").replace(/\r\n|\r|\n/g, ' ') + '"' }
+    fermata._flatten(data).forEach(function (kv) {
+        push("--" + segno);
+        if (kv[1].hasOwnProperty('data')) {
+            var file = kv[1];
+            push("Content-Disposition: form-data; name=" + q(kv[0]) + "; filename=" + q(file.name || "blob"));
+            push("Content-Type: " + (file.type || "application/octet-stream"));
+            push("Content-Transfer-Encoding: base64");  // TODO: sounds like prettymuchmost servers ignore this...
+            push('');
+            push(file.data.toString('base64'));
+        } else {
+            push("Content-Disposition: form-data; name=" + q(kv[0]));
+            push('');
+            push(kv[1]);
+        }
+    });
+    push("--" + segno + "--");
+    return buffer.join("\r\n");
+};
+
+fermata._xhrMultipartEncode = function (data) {
+    var form = new FormData();
+    fermata._flatten(data).forEach(function (kv) {
+        form.append(kv[0], kv[1]);
+    });
+    return form;
+};
+
 fermata.registerPlugin('autoConvert', function (transport, defaultType) {
     var TYPES = {
         "text/plain" : [
@@ -320,6 +355,10 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                     return kv.split("=").map(function (c) { return decodeURIComponent(c.replace(/\+/g, ' ')); });
                 }));
             }
+        ],
+        "multipart/form-data": [
+            (fermata._transport === fermata._xhrTransport) ? fermata._xhrMultipartEncode : fermata._nodeMultipartEncode,
+            null
         ]
     };
     return function (request, callback) {
@@ -330,7 +369,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         var reqType = request.headers['Content-Type'],
             encoder = (TYPES[reqType] || [])[0];
         if (encoder) {
-            request.data = request.data && encoder(request.data);
+            request.data = request.data && encoder.call(request, request.data);
         }
         transport(request, function (err, response) {
             var accType = request.headers['Accept'],
@@ -338,7 +377,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                 decoder = (TYPES[accType] || TYPES[resType] || [])[1];
             if (decoder) {
                 try {
-                    response = decoder(response.data);
+                    response = decoder.call(response, response.data);
                 } catch (e) {
                     err || (err = e);
                 }
