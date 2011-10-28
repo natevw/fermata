@@ -1,8 +1,8 @@
-# Fermata v0.7 and beyond #
+# Preparing for a stable Fermata v1.0 #
 
-1. Binary data, especially files via Content-Type: form/multipart-data
+1. Better support for binary responses
 
-1. "Dynamic" url strings, or some better pattern for handling the default ".json" extensions and whatnot that many APIs like
+1. Handling for the default ".json" extensions and whatnot that many APIs like
 
 1. Should write some tests using the plugin architecture to verify more of the internals, and the plugin API itself.
 

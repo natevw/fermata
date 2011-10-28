@@ -1,19 +1,47 @@
 # Fermata #
 
-Fermata is a <del>node.js</del><ins>JavaScript</ins> REST library that lets you simply state your HTTP requests using clean syntax.
+Fermata is a JavaScript REST library that lets you simply state your HTTP requests using clean syntax.
+
+Features:
+
+* cleanly build URL strings (optional dot syntax — <i>node.js</i>, <i>supporting browsers</i>) and send asynchronous HTTP requests
+* automatic conversion of JSON request/response data
+* easily send raw data and form requests (including files!)
+* full customization of request (method, headers, data) when necessary
+* easy to add custom initialization and transport handlers
+* OAuth 1.0a support — <i>node.js</i>
+
+Fermata is a no-hassle library, compatible with all modern browsers *and* node.js
+
 
 ## Why? ##
 
-Fermata magically provides a clean JavaScript interface for access to any REST interface.
+Fermata magically provides a clean JavaScript interface for direct access to any REST interface.
 
+It does this by taking away the pain of URL strings and giving back a polished server response.
 Fermata works well in modern browsers and even better in [node.js](http://nodejs.org/).
 Its API naturally matches the authoritative HTTP documentation, so you always have access to each of your REST interfaces' latest and greatest features.
 The simple plugin interface makes it easy to provide site-specific defaults, and/or support servers that don't use the standard JSON data format.
 
-Fermata makes URLs so elegant, there is no need to use — or maintain! — some one-off "wrapper library" for every different service. The differences are subtle, but the result is magic!
+The differences are subtle, but the result is magic!
+In the end, Fermata makes URLs so elegant that there is no need to use — or maintain! — some one-off "wrapper library" for every different service.
 
 
 ## Magic? ##
+
+For production apps you'll want this file on your own server, but for quick **in-browser** development you can simply include:
+
+    <script src="https://raw.github.com/andyet/fermata/master/fermata.js"></script>
+
+This will make Fermata available through a single global variable on the window: `fermata`
+
+To make Fermata available under **node.js**, simply:
+
+    $ npm install fermata
+
+The examples below assume you import Fermata's module via `var fermata = require('fermata');`
+
+Alrighty then?
 
 ### Let's GET started ###
 
@@ -23,29 +51,37 @@ In Fermata, that's just:
 
     var site = fermata.json("http://youraccount.example.com");
     site.api.v3.frobbles.get(function (err, result) {
-       console.log("Here are your frobbles, sir!", result);
+       if (!err) console.log("The first Frobble is named", result[0].name);
     });
 
-***Fermata turns URLs into native JavaScript objects!***
+***Fermata turns even URLs themselves into native JavaScript objects!***
 Each path part becomes a property, and so slashes in HTTP paths simply turn into dot operators on JavaScript objects. When you pass a callback function, Fermata uses the last method call as the request's method.
 It really couldn't *get* much cleaner.
 
 Need to add query parameters?
 
-    var newAPI = site.api.v4;
+    var newAPI = site.api.v4;     // reuses the base URL from above
     newAPI.frobbles({ perPage: 10, page: myPageNum }).get(myPageHandler);
 
-This does a `GET` on `http://youraccount.example.com/api/v4/frobbles?perPage=10&page=N`, then asynchronously passes the response data to the `myPageHandler` callback function, parsed as an object.
+This does a `GET` on `http://youraccount.example.com/api/v4/frobbles?perPage=10&page=N`, then asynchronously passes the response data to the `myPageHandler` callback function after automatically converting the raw JSON response text into a ready-to-use object.
 
 ### Browser behind the times? ###
 
-Unfortunately, the examples above will only work in node.js and Firefox 4+. But don't worry!
+Unfortunately, the examples above will only work in node.js, Firefox 4+ and ([soon](http://code.google.com/p/v8/issues/detail?id=1543)) Chrome. But don't worry!
 In browsers without JavaScript's upcoming [Proxy](http://wiki.ecmascript.org/doku.php?id=harmony:proxies) feature you just need to use parentheses to form URLs, instead of dots:
 
     var newAPI = site('api')('v4');
     newAPI('frobbles')({ perPage: 10, page: myPageNum }).get(myPageHandler);
 
 Note how the dot syntax does still work for the final `.get`; Fermata provides fallbacks for the basic HTTP methods until browsers catch up.
+
+There's no harm in always using parentheses — you'll need them for adding query parameters or avoiding path component escaping anyway. The following all return the same URL string:
+
+    site.api.v4['cannot-dot']({key:"val"})()      // requires harmony-proxies support
+    site(['api/v4'])('cannot-dot')({key:"val"})()
+    site(['api/v4', 'cannot-dot'])({key:"val"})()
+    site('api', 'v4', 'cannot-dot', {key:"val"})()
+
 
 
 ### PUT ###
@@ -63,6 +99,9 @@ Of course, it's also easy to *update* a REST resource with Fermata. Let's set so
     });
 
 
+You can send data by passing it to the request method before your callback function (and headers by passing them before the data, but plugins usually handle that for you...).
+Just like Fermata converts the server's raw response into a JavaScript object, Fermata can convert data dictionaries into a variety of raw formats for you: JSON, x-www-form-urlencoded, form-data...
+
 ### POST ###
 
 When the HTTP documentation says something like, "To create a Quibblelog, POST it to /utils/quibblelogger":
@@ -71,14 +110,14 @@ When the HTTP documentation says something like, "To create a Quibblelog, POST i
 
 Or for cross-browser support:
 
-   site('utils')('quibblelogger').post({ message: "All your base.", level: 'stern warning' }, someCallback);
+    site('utils')('quibblelogger').post({ message: "All your base.", level: 'stern warning' }, someCallback);
 
 Voilà!
 
 
 ## Plugins ##
 
-Every time you initialize a new Fermata URL, you do so through a plugin. Fermata provides two built-in plugins:
+Every time you initialize a new Fermata URL, you do so through a plugin. Fermata provides two built-in (high level) plugins:
 
 1. `json` — initialized with a base URL string, then simply sends a JavaScript object to the server as a JSON string and expects that the server will reply with JSON too.
 2. `raw` - gives more direct access, whatever text/byte data you pass gets sent verbatim and your callback gets the full response info. This is a handy way to start when adding new plugins (see below).
@@ -197,7 +236,6 @@ Then, presto! To make a request on any Fermata URL, simply provide your response
 
 ### Default plugins ###
 
-
 Fermata provides two high-level plugins:
 
 * `fermata.json("http://example.com")` - send/receive data objects as JSON
@@ -206,8 +244,19 @@ Fermata provides two high-level plugins:
 There are also several builtin plugins that are primarily intended for chaining within your own plugins:
 
 * `fermata.statusCheck()` - simple plugin that sets the callback error parameter if the response status code is not 2xx.
-* `fermata.autoConvert([defaultType])` - converts request/response data between native JS data objects and common HTTP content types, using header fields (currently supports: "text/plain", "application/json", "application/x-www-form-urlencoded")
+* `fermata.autoConvert([defaultType])` - converts request/response data between native JS data objects and common HTTP content types, using header fields (currently supports: "text/plain", "application/json", "application/x-www-form-urlencoded", "application/form-data")
 * `fermata.oauth({client, client_secret[, token, token_secret]})` - adds an OAuth authorization signature to the requests it transports
+
+#### File handling ####
+
+There are two primary ways a server might allow binary file uploads, and Fermata supports them both:
+
+* RESTful PUT - `fermata.raw("http://example.com/some/destination").put(  nodeBufferOrBrowserFile  , callback)`
+* form upload - `fermata.json("http://example.com/some/action").post({'Content-Type':"multipart/form-data"}, {fileField:  form.input.file || {data:nodeBuffer, name:"", type:""}  }, callback)`
+
+For multipart/form-data, send a File/Blob in the browser (Fermata will use the XHR2 FormData to send it). Under node.js, set the field name's value to an object with a `.data` property (and optional `.name` and `.type`). 
+
+Keep in mind that Fermata is intentionally designed to convert back and forth between *fully-formed* HTTP data and *in-memory* JavaScript objects, as this is exactly what you want for API communication, documents and photos. For larger files like video data or disk snapshots, you'll want to directly use the streaming features of node.js on the server-side, and provide an interruptible uploader app on the client-side.
 
 
 ### Adding plugins ###
@@ -241,7 +290,7 @@ Fermata plugins intended for cross-platform use should generally try to follow t
         }
     })();
 
-As of Fermata v0.7, this plugin API may still need some improvement (=change) but the basic idea is that Fermata can easily delegate the interesting high-level decisions to logic customized for a particular REST server interface.
+As of Fermata v0.8, this plugin API may still need some improvement (=change) but the basic idea is that Fermata can easily delegate the interesting high-level decisions to logic customized for a particular REST server interface.
 
 
 ## Release Notes ##
@@ -252,12 +301,12 @@ As of Fermata v0.7, this plugin API may still need some improvement (=change) bu
 * 0.5 - Browser support
 * 0.6 - Plugin architecture
 * 0.7 - Plugin chaining
+* 0.8 - Form-based file uploads
 
 ## Roadmap ##
 
-* 0.8 - multipart/binary requests?
-* ... - [feedback welcome](https://github.com/andyet/fermata/issues)!
-
+* 0.9 - Clean up some loose ends and lingering 
+* 1.0 - [Your feedback needed](https://github.com/andyet/fermata/issues) before the API is finalized!
 
 ## License ##
 
