@@ -13,13 +13,13 @@ f.registerPlugin('flickr', r);
 
 
 // boring example, just fetches a bit of public data
-f.flickr({client:APP_KEY, client_secret:SECRET}).rest({method:"flickr.panda.getList"}).get(function (e, d) {
+var CREDS = {client:APP_KEY, client_secret:SECRET},
+    public_flickr = f.flickr(CREDS);
+public_flickr.rest({method:"flickr.panda.getList"}).get(function (e, d) {
     console.log(e,d);
 });
 
 // this example requires a bit of manual intervention for OAuth delegation
-var CREDS = {client:APP_KEY, client_secret:SECRET},
-    public_flickr = f.flickr(CREDS);
 public_flickr.oauth.request_token({oauth_callback:"oob"}).get(function (e,d) {
     console.log(e,d);
     CREDS.token = d.oauth_token;
