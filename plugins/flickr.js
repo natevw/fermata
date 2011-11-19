@@ -4,7 +4,7 @@ module.exports = function flickrPlugin(transport, oauth_cred) {
     this.base = "https://secure.flickr.com/services";
     transport = transport.using('statusCheck').using('autoConvert', "application/json").using('oauth', oauth_cred);
     return function (req, callback) {
-        req._oauth_base = "http://secure.flickr.com/services";      // herp derp #1 (Flickr calculates sig base string with wrong URL scheme)
+        //req._oauth_base = "http://secure.flickr.com/services";      // herp derp #1 (Flickr calculates sig base string with wrong URL scheme) [...until now they don't anymore]
         if (req.path[1] === "oauth") {
             delete req.query['format'];
             delete req.query['nojsoncallback'];
