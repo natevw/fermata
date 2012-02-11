@@ -111,6 +111,10 @@ fermata._nodeTransport = function (request, callback) {
         data = null, textResponse = true;
     
     if (url_parts.auth) {
+        // TODO: this is a workaround for https://github.com/joyent/node/issues/2736 and should be removed or hardcoded per its resolution
+        if (require('url').parse("http//either%2for@example").auth !== "either/or") {
+            url_parts.auth = decodeURIComponent(url_parts.auth);
+        }
         headers['Authorization'] = 'Basic ' + new Buffer(url_parts.auth).toString('base64');
     }
     fermata._extend(headers, request.headers);
