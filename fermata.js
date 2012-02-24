@@ -367,7 +367,8 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
     };
     return function (request, callback) {
         if (defaultType) {
-            request.headers['Content-Type'] || (request.headers['Content-Type'] = defaultType);
+            if (request.method !== 'GET' && request.method !== 'HEAD')  // setting Content-Type triggers CORS pre-flight, avoid when data isn't sent
+                request.headers['Content-Type'] || (request.headers['Content-Type'] = defaultType);
             request.headers['Accept'] || (request.headers['Accept'] = defaultType);
         }
         var reqType = request.headers['Content-Type'],
