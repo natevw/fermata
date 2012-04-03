@@ -275,8 +275,8 @@ Fermata plugins intended for cross-platform use should generally try to follow t
             this.base = baseURL;				    // ...this setup function can set default base/path/query items, then must return the (typically wrapped) request transport function.
             transport = transport.using('statusCheck').using('autoConvert', "application/json");		// any registered plugin may be used
             return function (request, callback) {                   // request = {base, method, path, query, headers, data}
-                req.path[req.path.length - 1] += ".json";           // NOTE: automatically adding an extension like this breaks the URL string Fermata automatically returns on `()` calls, and so this pattern will likely need to be replaced somehow before v1.0
-                transport(req, function (err, response) {           // response = {status, headers, data}
+                request.path[request.path.length - 1] += ".json";   // NOTE: automatically adding an extension like this breaks the URL string Fermata automatically returns on `()` calls, and so this pattern will likely need to be replaced somehow before v1.0
+                transport(request, function (err, response) {       // response = {status, headers, data}
                     callback(err, response);
                 });
             };
