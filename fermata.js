@@ -61,6 +61,7 @@ fermata._makeNativeURL = function (transport, url) {
                 data = args.pop(),
                 headers = fermata._normalize(args.pop() || {}),
                 method = url.path.pop().toUpperCase();
+            if (method === 'DEL') method = 'DELETE';
             return transport({base:url.base, method:method, path:url.path, query:url.query, headers:headers, data:data}, callback);
         } else {
             var query2 = (lastArg === 'object') ? fermata._extend(fermata._extend({}, url.query), args.pop()) : url.query,
@@ -100,7 +101,7 @@ fermata._wrapTheWrapper = function (impl) {
         'put': function () { impl('put').apply(null, arguments); },
         'post': function () { impl('post').apply(null, arguments); },
         'delete': function () { impl('delete').apply(null, arguments); },
-        'del': function () { impl('delete').apply(null, arguments); },
+        'del': function () { impl('del').apply(null, arguments); }
     });
 };
 
