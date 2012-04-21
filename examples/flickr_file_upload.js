@@ -43,7 +43,7 @@ public_flickr.oauth.request_token({oauth_callback:"oob"}).get(function (e,d) {
             // upload the FILE above into your Flickr account
             var upload_form = {
                 photo: {name:"Fermata upload example.", type:"image/jpeg", data:require('fs').readFileSync(FILE)},
-                description: "This image was uploading using https://github.com/andyet/fermata — a simple yet powerful HTTP client for HTML5 and node.js!"
+                description: "This image was uploading using https://github.com/natevw/fermata — a simple yet powerful HTTP client for HTML5 and node.js!"
             };
             my_flickr.upload.post({'Content-Type':"multipart/form-data"}, upload_form, function (e,d) {
                 //console.log(e,d);

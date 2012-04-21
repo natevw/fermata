@@ -15,4 +15,4 @@ twapi.statuses.home_timeline.get(function (e, d) {
     console.log(e,d);
 });
 
-twapi.statuses.update.post({status:"I'm trying out @natevw's Fermata, a simple but powerful REST client for HTML5 and node.js: https://github.com/andyet/fermata /cc @andyet"}, function (e,d) {console.log(e,d);});
+twapi.statuses.update.post({status:"I'm trying out @natevw's Fermata, a simple but powerful REST client for HTML5 and node.js: https://github.com/natevw/fermata"}, function (e,d) {console.log(e,d);});

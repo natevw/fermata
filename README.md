@@ -31,7 +31,7 @@ In the end, Fermata makes URLs so elegant that there is no need to use — or m
 
 For production apps you'll want this file on your own server, but for quick **in-browser** development you can simply include:
 
-    <script src="https://raw.github.com/andyet/fermata/master/fermata.js"></script>
+    <script src="https://raw.github.com/natevw/fermata/master/fermata.js"></script>
 
 This will make Fermata available through a single global variable on the window: `fermata`
 
@@ -126,7 +126,7 @@ Many useful REST servers might talk in XML, or require that every request be spe
 
 Enter custom plugins.
 
-For example, many of the ideas in Fermata originated in a [node.js Chargify library](https://github.com/andyet/node-chargify) we wrote for their [payment management API](http://docs.chargify.com/api-introduction).
+For example, many of the ideas in Fermata originated in a [node.js Chargify library](https://github.com/natevw/node-chargify) we wrote for their [payment management API](http://docs.chargify.com/api-introduction).
 
 Without plugins, setting up Fermata to connect to Chargify is totally possible...but kinda ugly:
 
@@ -185,7 +185,7 @@ Take a look at the detailed documentation below for tips on publishing plugins t
 
 ## Complete documentation ##
 
-*NOTE*: this API may continue to [undergo refinement](https://github.com/andyet/fermata/blob/master/ROADMAP.md) until a stable 1.0 release.
+*NOTE*: this API may continue to [undergo refinement](https://github.com/natevw/fermata/blob/master/ROADMAP.md) until a stable 1.0 release.
 
 
 ### URL proxy ###
@@ -306,7 +306,7 @@ As of Fermata v0.8, this plugin API may still need some improvement (=change) bu
 ## Roadmap ##
 
 * 0.9 - Clean up some loose ends and lingering 
-* 1.0 - [Your feedback needed](https://github.com/andyet/fermata/issues) before the API is finalized!
+* 1.0 - [Your feedback needed](https://github.com/natevw/fermata/issues) before the API is finalized!
 
 ## License ##
 

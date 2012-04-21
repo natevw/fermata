@@ -1,6 +1,6 @@
 /*
 Fermata: a succinct REST client.
-Written by Nathan Vander Wilt (nate@andyet.net).
+Written by Nathan Vander Wilt (nate@calftrail.com).
 
 Copyright © 2011 &yet, LLC. Released under the terms of the MIT License:
 
