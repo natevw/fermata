@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/natevw/fermata.png)](http://travis-ci.org/natevw/fermata)
 # Fermata #
 
 Fermata is a JavaScript REST library that lets you simply state your HTTP requests using clean syntax.
