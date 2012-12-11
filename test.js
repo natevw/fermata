@@ -60,10 +60,10 @@ if (f.oauth) assert.ok(       // from http://tools.ietf.org/html/rfc5849#page-7
 var timeout = setTimeout(function () {
     assert.ok(false, "Network request timed out.");
 }, 2500);
-f.json("http://pdxapi.com")('bicycle_parking')('geojson')({bbox:"-122.6785969,45.5167974,-122.6763439,45.51772964"}).get(function (e, o) {
+f.json("http://ipcalf.com").get(function (e, d) {
     clearTimeout(timeout);
     assert.ifError(e, "Unsuccessful request; maybe network is down or browser blocks XHR cross-origin [informational]");
-    assert.ok(o.update_seq);
+    assert.ok(d);
 });
 
 assert.ok(Proxy, "no proxy support in this browser, tested fallback methods instead [informational]");
