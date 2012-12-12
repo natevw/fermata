@@ -167,7 +167,7 @@ Since such a "fermata-chargify" plugin hasn't been published yet, we can just re
             request.headers['Accept'] = "application/json";
             request.headers['Content-Type'] = "application/json";
             request.data = JSON.stringify(request.data);
-            transport(request, function (err, response) {
+            return transport(request, function (err, response) {
                 if (!err) {
                     if (response.status.toFixed()[0] !== '2') { err = Error("Bad status code from server: " + response.status); }
                     try {
@@ -192,7 +192,7 @@ Take a look at the detailed documentation below for tips on publishing plugins t
 
 * `fermata.json(base_url)` - create a URL proxy object for base_url using the built-in 'json' plugin
 * `()` - absolute URL as string
-* `.method([headers, [data,]] function)` - request targetting callback
+* `.method([headers, [data,]] function)` - request targetting callback, returns native [XHR](http://www.w3.org/TR/XMLHttpRequest/#interface-xmlhttprequest)/[http.ClientRequest](http://nodejs.org/api/http.html#http_class_http_clientrequest) object including an `.abort()` method
 * `(string/array...[, object])` - general extension syntax, each type documented below
 * `(object)` - override query parameters (see $key:value details below)
 * `(array)` - extend URL with components (without encoding)
@@ -290,7 +290,7 @@ Fermata plugins intended for cross-platform use should generally try to follow t
         }
     })();
 
-As of Fermata v0.8, this plugin API may still need some improvement (=change) but the basic idea is that Fermata can easily delegate the interesting high-level decisions to logic customized for a particular REST server interface.
+As of Fermata v0.9, this plugin API may still need some improvement (=change) but the basic idea is that Fermata can easily delegate the interesting high-level decisions to logic customized for a particular REST server interface.
 
 
 ## Release Notes ##
@@ -302,10 +302,11 @@ As of Fermata v0.8, this plugin API may still need some improvement (=change) bu
 * 0.6 - Plugin architecture
 * 0.7 - Plugin chaining
 * 0.8 - Form-based file uploads
+* 0.9 — Expose native request, better errors
 
 ## Roadmap ##
 
-* 0.9 - Clean up some loose ends and lingering 
+* 0.10 - Clean up some loose ends and lingering questions (plugin API?)
 * 1.0 - [Your feedback needed](https://github.com/natevw/fermata/issues) before the API is finalized!
 
 ## License ##
