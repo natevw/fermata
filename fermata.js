@@ -97,11 +97,11 @@ fermata._wrapTheWrapper = function (impl) {
             return impl(name);
         }
     }, impl) : fermata._extend(impl, {
-        'get': function () { impl('get').apply(null, arguments); },
-        'put': function () { impl('put').apply(null, arguments); },
-        'post': function () { impl('post').apply(null, arguments); },
-        'delete': function () { impl('delete').apply(null, arguments); },
-        'del': function () { impl('del').apply(null, arguments); }
+        'get': function () { return impl('get').apply(null, arguments); },
+        'put': function () { return impl('put').apply(null, arguments); },
+        'post': function () { return impl('post').apply(null, arguments); },
+        'delete': function () { return impl('delete').apply(null, arguments); },
+        'del': function () { return impl('del').apply(null, arguments); }
     });
 };
 
@@ -173,6 +173,7 @@ fermata._nodeTransport = function (request, callback) {
             callback(Error("Connection dropped (" + err + ")"), {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
         });
     });
+    return req;
 };
 
 fermata._xhrTransport = function (request, callback) {
@@ -200,6 +201,7 @@ fermata._xhrTransport = function (request, callback) {
             }
         }
     }
+    return xhr;
 };
 
 fermata._stringForURL = function (url) {        // url={base:"",path:[],query:{}}
@@ -282,7 +284,7 @@ fermata.registerPlugin('_base', function () {
      callback = function(error, response)
      response = {status, headers, data}
     */
-    return function (request, callback) {          
+    return function (request, callback) {
         return fermata._transport(request, callback);
     };
 });
@@ -294,7 +296,7 @@ fermata.registerPlugin('raw', function (transport, config) {
 
 fermata.registerPlugin('statusCheck', function (transport) {
     return function (request, callback) {
-        transport(request, function (err, response) {
+        return transport(request, function (err, response) {
             if (!err && response.status.toFixed()[0] !== '2') {
                 err = Error("Bad status code from server: " + response.status);
             }
@@ -381,7 +383,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         if (encoder) {
             request.data = request.data && encoder.call(request, request.data);
         }
-        transport(request, function (err, response) {
+        return transport(request, function (err, response) {
             var accType = request.headers['Accept'],
                 resType = response && response.headers['Content-Type'],
                 decoder = (TYPES[accType] || TYPES[resType] || [])[1];
