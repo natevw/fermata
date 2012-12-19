@@ -36,7 +36,6 @@ var fermata;
                     backoff *= 2;
                 } else {
                     backoff = DEFAULT_DELAY;
-                    console.log(d);
                     if (d.results.length) {
                         callback(d.results);
                     }

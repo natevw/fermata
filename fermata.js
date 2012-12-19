@@ -123,7 +123,7 @@ fermata._nodeTransport = function (request, callback) {
     if (request.data && request.method === 'GET' || request.method === 'HEAD') {
         /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
            avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
-        console.warn("Ignoring data passed to GET or HEAD request.");
+        if (console && console.warn) console.warn("Ignoring data passed to GET or HEAD request.");
     } else if (typeof(request.data) === 'string') {
         data = new Buffer(request.data, 'utf8');
         // TODO: follow XHR algorithm for charset replacement if Content-Type already set
@@ -412,7 +412,7 @@ fermata.registerPlugin('api', function (transport, temp) {
     if (temp.user) {
         correctURL = correctURL.replace(/\/\/(\w)/, '//' + temp.user + ':PASSWORD@$1');
     }
-    console.warn("Using deprecated API: please initialize with `fermata.json(\"" + correctURL + "\")` instead. This plugin will be disabled soon!");
+    if (console && console.warn) console.warn("Using deprecated API: please initialize with `fermata.json(\"" + correctURL + "\")` instead. This plugin will be disabled soon!");
     this.base = correctURL;
     return transport.using('statusCheck').using('autoConvert', "application/json");
 });
