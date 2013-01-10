@@ -31,7 +31,7 @@ var fermata;
             db = db({nocache:Math.random()});
             db('_changes', {since:currentSeq, feed:'longpoll'}).get(function (e,d) {
                 if (e) {
-                    if (console && console.warn) console.warn("Error from CouchDB _changes feed, trying again in ", backoff, " milliseconds.", e, d);
+                    if (console && console.warn) console.warn("Couldn't fetch CouchDB _changes feed, trying again in ", backoff, " milliseconds.", e, d);
                     setTimeout(poll, backoff);
                     backoff *= 2;
                 } else {
@@ -47,10 +47,6 @@ var fermata;
         setTimeout(poll, 0);        // starting this after script completes helps avoid "progress" indicators
     };
     
-    
-    function onChange(seq, f) {
-                    }
-
     // some boilerplate to deal with browser vs. CommonJS
     if (fermata) {
         fermata.registerPlugin("couchdb", plugin);
