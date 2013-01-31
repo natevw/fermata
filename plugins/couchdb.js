@@ -29,7 +29,7 @@ var fermata;
                as described in e.g. http://www.dashbay.com/2011/05/internet-explorer-caches-ajax/ */
             // NOTE: see also https://issues.apache.org/jira/browse/COUCHDB-257 (shouldn't have been closed?!)
             db = db({nocache:Math.random()});
-            db('_changes', {since:currentSeq, feed:'longpoll'}).get(function (e,d) {
+            db('_changes', {$since:currentSeq, feed:'longpoll'}).get(function (e,d) {
                 if (e) {
                     if (console && console.warn) console.warn("Couldn't fetch CouchDB _changes feed, trying again in ", backoff, " milliseconds.", e, d);
                     setTimeout(poll, backoff);
