@@ -20,17 +20,20 @@ var fermata;
     };
     
     plugin.watchChanges = function (db, lastSeq, callback) {
-        // TODO: provide a way to "unwatch" (use built-in event models?), provide more info/options to callback, etc.
         var currentSeq = lastSeq,
             DEFAULT_DELAY = 100,
-            backoff = DEFAULT_DELAY;
+            backoff = DEFAULT_DELAY,
+            activeRequest = null,
+            cancelled = false;
         function poll() {
             /* Deal with effects of IE caching — will poll rapidly once IE decides to screw up
                as described in e.g. http://www.dashbay.com/2011/05/internet-explorer-caches-ajax/ */
             // NOTE: see also https://issues.apache.org/jira/browse/COUCHDB-257 (shouldn't have been closed?!)
             db = db({nocache:Math.random()});
-            db('_changes', {$since:currentSeq, feed:'longpoll'}).get(function (e,d) {
-                if (e) {
+            activeRequest = db('_changes', {$since:currentSeq, feed:'longpoll'}).get(function (e,d) {
+                activeRequest = null;
+                if (cancelled) return;
+                else if (e) {
                     if (console && console.warn) console.warn("Couldn't fetch CouchDB _changes feed, trying again in ", backoff, " milliseconds.", e, d);
                     setTimeout(poll, backoff);
                     backoff *= 2;
@@ -45,6 +48,10 @@ var fermata;
             });
         }
         setTimeout(poll, 0);        // starting this after script completes helps avoid "progress" indicators
+        return function () {
+            cancelled = true;
+            if (activeRequest) activeRequest.abort();
+        };
     };
     
     // some boilerplate to deal with browser vs. CommonJS
