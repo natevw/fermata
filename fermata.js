@@ -133,12 +133,14 @@ fermata._nodeTransport = function (request, callback) {
         data = new Buffer(request.data);
     }
     
-    var req = ((url_parts.protocol === 'https:') ? require('https') : require('http')).request({
+    var http = (url_parts.protocol === 'https:') ? require('https') : require('http');
+    var req = http.request({
         host: url_parts.hostname,
         port: url_parts.port,
         method: request.method,
         path: url_parts.pathname + (url_parts.search || ''),
-        headers: headers
+        headers: headers,
+        agent: http.globalAgent         // HACK: allow users some control over connections via e.g. `require('https').globalAgent = new CustomAgent()`
     });
     if (data) {
         req.setHeader('Content-Length', data.length);
