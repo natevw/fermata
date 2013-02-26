@@ -39,8 +39,10 @@ var fermata;
                     backoff *= 2;
                 } else {
                     backoff = DEFAULT_DELAY;
-                    if (d.results.length) {
+                    if (d.results.length) try {
                         callback(d.results);
+                    } catch (e) {
+                        if (console && console.warn) console.warn("CouchDB _changes callback handler threw exception", e);
                     }
                     currentSeq = d.last_seq;
                     poll();
