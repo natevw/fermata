@@ -19,10 +19,11 @@ var fermata;
         return transport.using('statusCheck').using('autoConvert', "application/json");
     };
     
-    plugin.watchChanges = function (db, lastSeq, callback) {
+    plugin.watchChanges = function (db, lastSeq, callback, interval) {
         var currentSeq = lastSeq,
-            DEFAULT_DELAY = 100,
+            DEFAULT_DELAY = interval || 100,
             backoff = DEFAULT_DELAY,
+            feedType = (interval) ? 'normal' : 'longpoll',
             activeRequest = null,
             cancelled = false;
         function poll() {
@@ -30,13 +31,13 @@ var fermata;
                as described in e.g. http://www.dashbay.com/2011/05/internet-explorer-caches-ajax/ */
             // NOTE: see also https://issues.apache.org/jira/browse/COUCHDB-257 (shouldn't have been closed?!)
             db = db({nocache:Math.random()});
-            activeRequest = db('_changes', {$since:currentSeq, feed:'longpoll'}).get(function (e,d) {
+            activeRequest = db('_changes', {feed:feedType, $since:currentSeq}).get(function (e,d) {
                 activeRequest = null;
                 if (cancelled) return;
                 else if (e) {
                     if (console && console.warn) console.warn("Couldn't fetch CouchDB _changes feed, trying again in ", backoff, " milliseconds.", e, d);
                     setTimeout(poll, backoff);
-                    backoff *= 2;
+                    if (!interval) backoff *= 2;
                 } else {
                     backoff = DEFAULT_DELAY;
                     if (d.results.length) try {
@@ -45,7 +46,7 @@ var fermata;
                         if (console && console.warn) console.warn("CouchDB _changes callback handler threw exception", e);
                     }
                     currentSeq = d.last_seq;
-                    poll();
+                    setTimeout(poll, backoff);
                 }
             });
         }
