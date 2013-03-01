@@ -166,13 +166,13 @@ fermata._nodeTransport = function (request, callback) {
                 // TODO: (below too) follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
-            callback(null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
+            callback(null, {data:responseData}, {status:res.statusCode, headers:fermata._normalize(res.headers)});
         });
         res.on('close', function (err) {
             if (textResponse) {
                 responseData = responseData.toString('utf8');
             }
-            callback(Error("Connection dropped (" + err + ")"), {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
+            callback(Error("Connection dropped (" + err + ")"), {data:responseData}, {status:res.statusCode, headers:fermata._normalize(res.headers)});
         });
     });
     return req;
@@ -197,7 +197,7 @@ fermata._xhrTransport = function (request, callback) {
                     responseHeaders[l[0]] = l.slice(1).join("\u003A\u0020");
                 });
                 // TODO: when XHR2 settles responseBody vs. response, handle "bytes" siteReq.responseType
-                callback(null, {status:this.status, headers:fermata._normalize(responseHeaders), data:this.responseText});
+                callback(null, {data:this.responseText}, {status:this.status, headers:fermata._normalize(responseHeaders)});
             } else {
                 callback(Error("XHR request failed"), null);
             }
@@ -283,7 +283,7 @@ fermata.registerPlugin('_base', function () {
     /*
      this = baseURL = {base, path, query}
      request = {base, method, path, query, headers, data}
-     callback = function(error, response)
+     callback = function(error, response, meta)
      response = {status, headers, data}
     */
     return function (request, callback) {
@@ -298,12 +298,12 @@ fermata.registerPlugin('raw', function (transport, config) {
 
 fermata.registerPlugin('statusCheck', function (transport) {
     return function (request, callback) {
-        return transport(request, function (err, response) {
-            if (!err && response.status.toFixed()[0] !== '2') {
+        return transport(request, function (err, response, meta) {
+            if (!err && meta.status.toFixed()[0] !== '2') {
                 err = Error("Bad status code from server: " + response.status);
-                err.status = response.status;
+                err.status = meta.status;
             }
-            callback(err, response);
+            callback(err, response, meta);
         });
     };
 });
@@ -386,9 +386,9 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         if (encoder) {
             request.data = request.data && encoder.call(request, request.data);
         }
-        return transport(request, function (err, response) {
+        return transport(request, function (err, response, meta) {
             var accType = request.headers['Accept'],
-                resType = response && response.headers['Content-Type'],
+                resType = response && meta.headers['Content-Type'],
                 decoder = (TYPES[accType] || TYPES[resType] || [])[1];
             if (decoder) {
                 try {
@@ -397,7 +397,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                     err || (err = e);
                 }
             }
-            callback(err, response);
+            callback(err, response, meta);
         });
     };
 });
