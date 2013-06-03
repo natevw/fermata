@@ -391,10 +391,14 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                 resType = response && response.headers['Content-Type'],
                 decoder = (TYPES[accType] || TYPES[resType] || [])[1];
             if (decoder) {
-                try {
-                    response = decoder.call(response, response.data);
-                } catch (e) {
-                    err || (err = e);
+                if (response && response.status && response.status.toFixed() === '204') {
+                    response = {};
+                } else {
+                    try {
+                        response = decoder.call(response, response.data);
+                    } catch (e) {
+                        err || (err = e);
+                    }
                 }
             }
             callback(err, response);
