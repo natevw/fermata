@@ -120,7 +120,7 @@ fermata._nodeTransport = function (request, callback) {
     }
     fermata._extend(headers, request.headers);
     
-    if (request.data && request.method === 'GET' || request.method === 'HEAD') {
+    if (request.data && request.data.length && request.method === 'GET' || request.method === 'HEAD') {
         /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
            avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
         if (console && console.warn) console.warn("Ignoring data passed to GET or HEAD request.");
@@ -128,7 +128,7 @@ fermata._nodeTransport = function (request, callback) {
         data = new Buffer(request.data, 'utf8');
         // TODO: follow XHR algorithm for charset replacement if Content-Type already set
         headers['Content-Type'] || (headers['Content-Type'] = "text/plain;charset=UTF-8");
-    } else if (request.data && request.data.length) {
+    } else if (request.data) {
         textResponse = false;
         data = new Buffer(request.data);
     }

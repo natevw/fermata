@@ -1,6 +1,6 @@
 {
     "name": "fermata",
-    "version": "0.9.6",
+    "version": "0.9.7",
     "homepage": "https://github.com/natevw/fermata",
     "repository":{"type":"git", "url":"https://github.com/natevw/fermata.git"},
     "author": {"name":"&yet, LLC", "url":"http://andyet.net"},
