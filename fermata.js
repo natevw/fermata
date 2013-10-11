@@ -2,7 +2,10 @@
 Fermata: a succinct REST client.
 Written by Nathan Vander Wilt (nate@calftrail.com).
 
-Copyright © 2011 &yet, LLC. Released under the terms of the MIT License:
+Copyright © 2011 &yet, LLC.
+Copyright © 2012–2013 Nathan Vander Wilt.
+
+Released under the terms of the MIT License:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
