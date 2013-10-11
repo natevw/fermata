@@ -393,14 +393,31 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
             var accType = request.headers['Accept'],
                 resType = response && response.headers['Content-Type'],
                 decoder = (TYPES[accType] || TYPES[resType] || [])[1];
+            var data = response && response.data,
+                // NOTE: I can only find one precedent (Symfony web framework) for this header extension
+                meta = response && fermata._extend({'X-Status-Code':response.status}, response.headers);
             if (decoder) {
                 try {
-                    response = decoder.call(response, response.data);
+                    data = decoder.call(response, data);
                 } catch (e) {
+                    data = {};        // TODO: this is for backwards compatibility, leave data as-is in next version
+                    ['status', 'headers', 'data'].forEach(function (k) {
+                        Object.defineProperty(data, k, {
+                            configurable: true,
+                            enumerable: true,
+                            get: function() {
+                                console.warn(
+                                    "You accessed raw response information ("+k+") on error. "+
+                                    "This will be made consistent with the non-error case in the next version of Fermata."
+                                );
+                                return response[k];
+                            }
+                        });
+                    });
                     err || (err = e);
                 }
             }
-            callback(err, response);
+            callback(err, data, meta);
         });
     };
 });
