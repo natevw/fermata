@@ -50,8 +50,8 @@ So you need to fetch a JSON resource from "http://youraccount.example.com/api/v3
 In Fermata, that's just:
 
     var site = fermata.json("http://youraccount.example.com");
-    site.api.v3.frobbles.get(function (err, result) {
-       if (!err) console.log("The first Frobble is named", result[0].name);
+    site.api.v3.frobbles.get(function (err, data/*, headers*/) {
+       if (!err) console.log("The first Frobble is named", data[0].name);
     });
 
 ***Fermata turns even URLs themselves into native JavaScript objects!***
@@ -119,7 +119,7 @@ Voilà!
 
 Every time you initialize a new Fermata URL, you do so through a plugin. Fermata provides two built-in (high level) plugins:
 
-1. `json` — initialized with a base URL string, then simply sends a JavaScript object to the server as a JSON string and expects that the server will reply with JSON too.
+1. `json` — initialized with a base URL string, then simply sends a JavaScript object to the server as a JSON string and expects that the server will reply with JSON too. Passes headers (and `X-Status-Code`) as the second callback argument.
 2. `raw` - gives more direct access, whatever text/byte data you pass gets sent verbatim and your callback gets the full response info. This is a handy way to start when adding new plugins (see below).
 
 Many useful REST servers might talk in XML, or require that every request be specially signed with a secret key. Or maybe you just want to build the base URL string from higher-level settings.
@@ -303,10 +303,11 @@ As of Fermata v0.9, this plugin API may still need some improvement (=change) bu
 * 0.7 - Plugin chaining
 * 0.8 - Form-based file uploads
 * 0.9 — Expose native request, better errors
+* 0.10 — Auto-convert improvements (headers, 204)
 
 ## Roadmap ##
 
-* 0.10 - Clean up some loose ends and lingering questions (plugin API?)
+* 0.11 - Clean up some loose ends and lingering questions (streams/binary, plugin chaining)
 * 1.0 - [Your feedback needed](https://github.com/natevw/fermata/issues) before the API is finalized!
 
 ## License ##
