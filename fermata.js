@@ -396,7 +396,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
             var data = response && response.data,
                 // NOTE: I can only find one precedent (Symfony web framework) for this header extension
                 meta = response && fermata._extend({'X-Status-Code':response.status}, response.headers);
-            if (!data.length) {     // handle e.g. 204 No-Content responses, HT https://github.com/natevw/fermata/pull/35
+            if (response && response.status === 204) {     // handle No-Content responses, HT https://github.com/natevw/fermata/pull/35
                 data = null;
             } else if (decoder) {
                 try {
