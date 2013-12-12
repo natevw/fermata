@@ -50,11 +50,23 @@ var fermata;
                 }
             });
         }
-        setTimeout(poll, 0);        // starting this after script completes helps avoid "progress" indicators
-        return function () {
+        function cancel() {
             cancelled = true;
             if (activeRequest) activeRequest.abort();
         };
+        
+        var utils = cancel;       // TODO: this is for backwards compat, should simply be an object
+        utils.cancel = utils.pause = cancel;
+        utils.restart = function () {
+            cancelled = false;
+            poll();
+        };
+        utils.getStatus = function () {
+            return {update_seq:currentSeq};
+        };
+        
+        setTimeout(poll, 0);        // starting this after script completes helps avoid "progress" indicators
+        return utils;
     };
     
     // some boilerplate to deal with browser vs. CommonJS
