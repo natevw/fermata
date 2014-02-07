@@ -1,0 +1,24 @@
+{
+  "name": "fermata",
+  "main": "fermata.js",
+  "version": "0.10.1",
+  "homepage": "https://github.com/natevw/fermata",
+  "authors": [
+    "Nathan Vander Wilt <nate@calftrail.com>"
+  ],
+  "description": "Succinct native REST client, for client-side web apps and node.js. Turns URLs into magic JavaScript objects. Supports JSON, CouchDB, OAuth 1.0a, form uploads and more!",
+  "keywords": [
+    "REST",
+    "AJAX",
+    "nodejs",
+    "magic"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
