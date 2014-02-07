@@ -11,14 +11,17 @@
     "REST",
     "AJAX",
     "nodejs",
-    "magic"
+    "http",
+    "client"
   ],
   "license": "MIT",
   "ignore": [
     "**/.*",
+    "**/*.md",
     "node_modules",
-    "bower_components",
-    "test",
-    "tests"
+    "examples",
+    "plugins",
+    "test.*",
+    "oauth.js"
   ]
 }
