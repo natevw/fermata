@@ -267,8 +267,8 @@ fermata._typeof2 = function (o) {
     return (Array.isArray(o)) ? 'array' : typeof(o);
 };
 
-
-if (typeof window === 'undefined') {
+// WORKAROUND: https://github.com/rogerwang/node-webkit/issues/1588
+if (typeof exports === 'object') {
     fermata._useExports = true;
     fermata._transport = fermata._nodeTransport;
     fermata.registerPlugin('oauth', require("./oauth").init(fermata));
