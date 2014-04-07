@@ -19,6 +19,30 @@ var fermata;
         return transport.using('statusCheck').using('autoConvert', "application/json");
     };
     
+    // HACK: starting XHR after page loads and outside of event handlers helps avoid "progress" indicators
+    var avoidSpinners = (typeof addEventListener === 'function') ? _callDelayedAfterLoad : _callDelayed;
+    function _callDelayed(fn) {
+        setTimeout(fn, 0);
+    }
+    function _callAfterLoad(fn) {
+        addEventListener('load', function _listener() {
+            try {
+                fn();
+            } finally {
+                removeEventListener('load', _listener, false);
+            }
+        }, false);
+    }
+    function _callDelayedAfterLoad(fn) {
+        _callAfterLoad(function () {
+            _callDelayed(fn);
+        });
+    }
+    if (avoidSpinners === _callDelayedAfterLoad) _callAfterLoad(function () {
+        // use our own helper to remove load-awaiting stuff once load happens
+        avoidSpinners = _callDelayed;
+    });
+    
     plugin.watchChanges = function (db, lastSeq, callback, interval) {
         var currentSeq = lastSeq,
             DEFAULT_DELAY = interval || 100,
@@ -65,7 +89,8 @@ var fermata;
             return {update_seq:currentSeq};
         };
         
-        setTimeout(poll, 0);        // starting this after script completes helps avoid "progress" indicators
+        avoidSpinners(poll);
+        
         return utils;
     };
     
