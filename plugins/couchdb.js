@@ -20,10 +20,11 @@ var fermata;
     };
     
     // HACK: starting XHR after page loads and outside of event handlers helps avoid "progress" indicators
-    var avoidSpinners = (typeof addEventListener === 'function') ? _callDelayedAfterLoad : _callDelayed;
-    function _callDelayed(fn) {
-        setTimeout(fn, 0);
-    }
+    var avoidSpinners = (typeof document === 'object') ? (
+        (document.readyState !== 'complete') ? _callDelayedAfterLoad : _callDelayed
+    ) : _call;
+    function _call(fn) { fn(); }
+    function _callDelayed(fn) { setTimeout(fn, 0); }
     function _callAfterLoad(fn) {
         addEventListener('load', function _listener() {
             try {
