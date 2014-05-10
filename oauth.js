@@ -59,7 +59,10 @@ oauth.signatureBaseString = function (req, auth) {
 oauth.authorizeHMAC = function (request, cred) {
     var crypto = require('crypto');     // only node.js supported (browser leaks client credentials)
     
-    var auth = {signature_method:"HMAC-SHA1"};
+    var auth = {
+        version: "1.0",
+        signature_method: "HMAC-SHA1"
+    };
     auth.consumer_key = cred.client;
     if (cred.token) {
         auth.token = cred.token;
