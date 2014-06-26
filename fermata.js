@@ -267,9 +267,11 @@ fermata._typeof2 = function (o) {
     return (Array.isArray(o)) ? 'array' : typeof(o);
 };
 
+if (module && module.exports) {
+  fermata._useExports = true;
+}
 
 if (typeof window === 'undefined') {
-    fermata._useExports = true;
     fermata._transport = fermata._nodeTransport;
     fermata.registerPlugin('oauth', require("./oauth").init(fermata));
     if (!Proxy) {
