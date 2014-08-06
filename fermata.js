@@ -157,25 +157,25 @@ fermata._nodeTransport = function (request, callback) {
         callback(e, null);
     });
     req.on('response', function (res) {
-        var responseData = new Buffer(0);
+        var responseChunks = [],
+            responseLength = 0;
         res.on('data', function (chunk) {
-            var prevChunk = responseData;
-            responseData = new Buffer(prevChunk.length + chunk.length);
-            prevChunk.copy(responseData);
-            chunk.copy(responseData, prevChunk.length);
+            responseChunks.push(chunk);
+            responseLength += chunk.length;
         });
-        res.on('end', function () {
+        function finish(err) {
+            var responseData = Buffer.concat(responseChunks, responseLength);
             if (textResponse) {
-                // TODO: (below too) follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
+                // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
-            callback(null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
-        });
-        res.on('close', function (err) {
-            if (textResponse) {
-                responseData = responseData.toString('utf8');
-            }
-            callback(Error("Connection dropped (" + err + ")"), {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
+            callback(err || null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
+        }
+        res.on('end', finish);
+        // TODO: is this handler correct?
+        // (may be a confusion between event on http.ServerResponse vs. http.IncomingMessage)
+        res.on('close', function () {
+            finish(new Error("Connection dropped."));
         });
     });
     return req;
