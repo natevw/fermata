@@ -276,16 +276,18 @@ fermata._typeof2 = function (o) {
     return (Array.isArray(o)) ? 'array' : typeof(o);
 };
 
+if (typeof exports !== 'undefined') {
+    fermata._useExports = true;
+    exports.registerPlugin = fermata.registerPlugin;
+    exports.plugins = fermata.plugins;
+}
 
 if (typeof window === 'undefined') {
-    fermata._useExports = true;
     fermata._transport = fermata._nodeTransport;
     fermata.registerPlugin('oauth', require("./oauth").init(fermata));
     if (!Proxy) {
         fermata._nodeProxy = require('node-proxy');
     }
-    exports.registerPlugin = fermata.registerPlugin;
-    exports.plugins = fermata.plugins;
 } else {
     fermata._transport = fermata._xhrTransport;
 }
