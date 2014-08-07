@@ -52,7 +52,7 @@ if (f.oauth) assert.equal(    // from http://tools.ietf.org/html/rfc5849#page-20
 if (f.oauth) assert.ok(       // from http://tools.ietf.org/html/rfc5849#page-7
     f.plugins.oauth.authorizeHMAC(
         {base: "http://photos.example.net", method:"GET", path:["", "photos"], query:{file:"vacation.jpg", size:"original"}, headers:{}},
-        {realm: "Photos", client:"dpf43f3p2l4k3l03", client_secret:"kd94hf93k423kf44", token:"nnch734d00sl2jdk", token_secret:"pfkkdhi9sl3r4s00", test_timestamp:137131202, test_nonce:"chapoH"}
+        {realm: "Photos", client:"dpf43f3p2l4k3l03", client_secret:"kd94hf93k423kf44", token:"nnch734d00sl2jdk", token_secret:"pfkkdhi9sl3r4s00", test_timestamp:137131202, test_nonce:"chapoH", no_version:true}
     ).indexOf('oauth_signature="MdpQcU8iPSUjWoN%2FUDMsK2sui9I%3D"') !== -1
 );
 

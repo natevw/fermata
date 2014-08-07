@@ -70,9 +70,13 @@ oauth.authorizeHMAC = function (request, cred) {
     if (cred.realm) {
         auth.realm = cred.realm;
     }
+    if (cred.no_version) {
+      delete auth.version;
+    }
     // NOTE: by my understanding, nonce does not have to be cryptographically random, just unique
     auth.timestamp = cred.test_timestamp || Math.round(Date.now() / 1000);     // override via `cred` ONLY for testing purposes!
     auth.nonce = cred.test_nonce || ('' + Math.round(Math.random() * 1e16) + Math.round(Math.random() * 1e16) + '');
+    
     
     // http://tools.ietf.org/html/rfc5849#section-3.4.2
     var baseString = oauth.signatureBaseString(request, auth),
