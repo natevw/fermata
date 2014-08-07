@@ -63,9 +63,13 @@ fermata._makeNativeURL = function (transport, url) {
             var callback = args.pop(),
                 data = args.pop(),
                 headers = fermata._normalize(args.pop() || {}),
+                responseType = args.pop() || 'text',      // 'stream', 'buffer' / 'json', 'document', 'blob', 'arraybuffer'
                 method = url.path.pop().toUpperCase();
             if (method === 'DEL') method = 'DELETE';
-            return transport({base:url.base, method:method, path:url.path, query:url.query, headers:headers, data:data}, callback);
+            return transport({
+                base:url.base, method:method, path:url.path, query:url.query,
+                responseType:responseType, headers:headers, data:data
+            }, callback);
         } else {
             var query2 = (lastArg === 'object') ? fermata._extend(fermata._extend({}, url.query), args.pop()) : url.query,
                 path2 = (args.length) ? url.path.concat(args) : url.path;
@@ -112,7 +116,8 @@ fermata._nodeTransport = function (request, callback) {
     var url = fermata._stringForURL(request),
         url_parts = require('url').parse(url),
         headers = {},
-        data = null, textResponse = true;
+        data = null, stream = null,
+        textResponse = true, streamResponse = false;
     
     if (url_parts.auth) {
         // TODO: this is a workaround for https://github.com/joyent/node/issues/2736 and should be removed or hardcoded per its resolution
@@ -123,17 +128,15 @@ fermata._nodeTransport = function (request, callback) {
     }
     fermata._extend(headers, request.headers);
     
-    if (request.data && request.data.length && request.method === 'GET' || request.method === 'HEAD') {
+    if (request.data && request.method === 'GET' || request.method === 'HEAD') {
         /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
            avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
         if (console && console.warn) console.warn("Ignoring data passed to GET or HEAD request.");
-    } else if (typeof(request.data) === 'string') {
-        data = new Buffer(request.data, 'utf8');
+        request.data = null;
+    } else if (typeof request.data === 'string') {
+        request.data = new Buffer(request.data, 'utf8');
         // TODO: follow XHR algorithm for charset replacement if Content-Type already set
         headers['Content-Type'] || (headers['Content-Type'] = "text/plain;charset=UTF-8");
-    } else if (request.data) {
-        textResponse = false;
-        data = new Buffer(request.data);
     }
     
     var http = (url_parts.protocol === 'https:') ? require('https') : require('http');
@@ -145,18 +148,24 @@ fermata._nodeTransport = function (request, callback) {
         headers: headers,
         agent: http.globalAgent         // HACK: allow users some control over connections via e.g. `require('https').globalAgent = new CustomAgent()`
     });
-    if (data) {
-        req.setHeader('Content-Length', data.length);
-        req.write(data);
+    if (request.data instanceof require('stream').Readable) {
+        request.data.pipe(req);
+    } else if (request.data) {
+        req.setHeader('Content-Length', request.data.length);
+        req.end(request.data);
     } else {
         req.setHeader('Content-Length', 0);
+        req.end();
     }
-    req.end();
     
     req.on('error', function (e) {
         callback(e, null);
     });
-    req.on('response', function (res) {
+    
+    if (request.responseType === 'stream') req.on('response', function (res) {
+        callback(null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:res});
+    });
+    else req.on('response', function (res) {
         var responseChunks = [],
             responseLength = 0;
         res.on('data', function (chunk) {
@@ -165,7 +174,7 @@ fermata._nodeTransport = function (request, callback) {
         });
         function finish(err) {
             var responseData = Buffer.concat(responseChunks, responseLength);
-            if (textResponse) {
+            if (request.responseType === 'text') {
                 // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
@@ -185,6 +194,7 @@ fermata._xhrTransport = function (request, callback) {
     var xhr = new XMLHttpRequest(),
         url = fermata._stringForURL(request);
     
+    xhr.responseType = request.responseType;
     xhr.open(request.method, url, true);
     Object.keys(request.headers).forEach(function (k) {
         xhr.setRequestHeader(k, request.headers[k]);
@@ -199,8 +209,7 @@ fermata._xhrTransport = function (request, callback) {
                     l = l.split("\u003A\u0020");
                     responseHeaders[l[0]] = l.slice(1).join("\u003A\u0020");
                 });
-                // TODO: when XHR2 settles responseBody vs. response, handle "bytes" siteReq.responseType
-                callback(null, {status:this.status, headers:fermata._normalize(responseHeaders), data:this.responseText});
+                callback(null, {status:this.status, headers:fermata._normalize(responseHeaders), data:this.response||this.responseText});
             } else {
                 callback(Error("XHR request failed"), null);
             }
@@ -392,7 +401,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         return transport(request, function (err, response) {
             var accType = request.headers['Accept'],
                 resType = response && response.headers['Content-Type'],
-                decoder = (TYPES[accType] || TYPES[resType] || [])[1];
+                decoder = (request.responseType === 'text') && (TYPES[accType] || TYPES[resType] || [])[1];
             var data = response && response.data,
                 // NOTE: I can only find one precedent (Symfony web framework) for this header extension
                 meta = response && fermata._extend({'X-Status-Code':response.status}, response.headers);
