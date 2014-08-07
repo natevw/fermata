@@ -285,9 +285,9 @@ if (typeof exports !== 'undefined') {
 if (typeof window === 'undefined') {
     fermata._transport = fermata._nodeTransport;
     fermata.registerPlugin('oauth', require("./oauth").init(fermata));
-    if (!Proxy) {
+    if (!Proxy) try {
         fermata._nodeProxy = require('node-proxy');
-    }
+    } catch (e) {}
 } else {
     fermata._transport = fermata._xhrTransport;
 }
