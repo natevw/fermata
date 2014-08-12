@@ -313,7 +313,7 @@ fermata.registerPlugin('raw', function (transport, config) {
 fermata.registerPlugin('statusCheck', function (transport) {
     return function (request, callback) {
         return transport(request, function (err, response) {
-            if (!err && response.status.toFixed()[0] !== '2') {
+            if (!err && response.status.toFixed(0)[0] !== '2') {
                 err = Error("Bad status code from server: " + response.status);
                 err.status = response.status;
             }
