@@ -280,14 +280,17 @@ if (typeof exports !== 'undefined') {
     fermata._useExports = true;
     exports.registerPlugin = fermata.registerPlugin;
     exports.plugins = fermata.plugins;
-}
-
-if (typeof window === 'undefined') {
-    fermata._transport = fermata._nodeTransport;
-    fermata.registerPlugin('oauth', require("./oauth").init(fermata));
     if (!Proxy) try {
         fermata._nodeProxy = require('node-proxy');
     } catch (e) {}
+}
+
+if (typeof window === 'undefined') {
+    fermata.registerPlugin('oauth', require("./oauth").init(fermata));
+}
+
+if (typeof process === 'object' && typeof process.versions === 'object' && 'http_parser' in process.versions) {
+    fermata._transport = fermata._nodeTransport;
 } else {
     fermata._transport = fermata._xhrTransport;
 }
