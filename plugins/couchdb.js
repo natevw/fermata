@@ -86,6 +86,7 @@ var fermata;
                                 last = lines.length - 1;
                             lines[0] = prev + lines[0];
                             for (var i = 0; i < last; i++) try {
+                                if (!lines[i]) continue;
                                 var result = JSON.parse(lines[i]);
                                 safeCallback([result]);
                                 currentSeq = result.seq;
