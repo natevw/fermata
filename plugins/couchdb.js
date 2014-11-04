@@ -46,18 +46,31 @@ var fermata;
     
     plugin.watchChanges = function (db, lastSeq, callback, interval) {
         var currentSeq = lastSeq,
-            DEFAULT_DELAY = interval || 100,
+            DEFAULT_DELAY = (typeof interval === 'number') ? interval : 100,
             backoff = DEFAULT_DELAY,
             feedType = (interval) ? 'normal' : 'longpoll',
             activeRequest = null,
             cancelled = false;
+        if (interval === 'continuous') {
+            feedType = interval;
+            interval = 0;
+        }
+        function safeCallback(results) {
+            try {
+                callback(results);
+            } catch (e) {
+                if (console && console.warn) console.warn("CouchDB _changes callback handler threw exception", e);
+            }
+        }
         function poll() {
             /* Deal with effects of IE caching — will poll rapidly once IE decides to screw up
                as described in e.g. http://www.dashbay.com/2011/05/internet-explorer-caches-ajax/ */
             // NOTE: see also https://issues.apache.org/jira/browse/COUCHDB-257 (shouldn't have been closed?!)
             db = db({nocache:Math.random()});
-            activeRequest = db('_changes', {feed:feedType, $since:currentSeq}).get(function (e,d) {
-                activeRequest = null;
+            var responseType = (feedType === 'continuous') ? 'stream' : null,
+                query = (currentSeq === 'now') ? {feed:feedType, since:'now'} : {feed:feedType, $since:currentSeq};
+            activeRequest = db('_changes', query).get(responseType, null, null, function (e,d) {
+                activeRequest = (responseType === 'stream') ? activeRequest : null;
                 if (cancelled) return;
                 else if (e) {
                     if (console && console.warn) console.warn("Couldn't fetch CouchDB _changes feed, trying again in ", backoff, " milliseconds.", e, d);
@@ -65,13 +78,31 @@ var fermata;
                     if (!interval) backoff *= 2;
                 } else {
                     backoff = DEFAULT_DELAY;
-                    if (d.results.length) try {
-                        callback(d.results);
-                    } catch (e) {
-                        if (console && console.warn) console.warn("CouchDB _changes callback handler threw exception", e);
+                    if (responseType === 'stream') {
+                        var prev = "";
+                        d.setEncoding('utf8');
+                        d.on('data', function (chunk) {
+                            var lines = chunk.toString().split('\n'),
+                                last = lines.length - 1;
+                            lines[0] = prev + lines[0];
+                            for (var i = 0; i < last; i++) try {
+                                var result = JSON.parse(lines[i]);
+                                safeCallback([result]);
+                                currentSeq = result.seq;
+                            } catch (e) {
+                                if (console && console.warn) console.warn("CouchDB _changes watcher failed to parse part of response", e);
+                            }
+                            prev = lines[last];
+                        });
+                        d.on('end', function () {
+                            activeRequest = null;
+                            setTimeout(poll, backoff);
+                        });
+                    } else {
+                        if (d.results.length) safeCallback(d.results);
+                        currentSeq = d.last_seq;
+                        setTimeout(poll, backoff);
                     }
-                    currentSeq = d.last_seq;
-                    setTimeout(poll, backoff);
                 }
             });
         }
