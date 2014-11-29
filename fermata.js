@@ -382,7 +382,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                 }).join("&");
             },
             function (data) {
-                return fermata._unflatten(data.split("&").map(function (kv) {
+                return fermata._unflatten(data.toString().split("&").map(function (kv) {
                     return kv.split("=").map(function (c) { return decodeURIComponent(c.replace(/\+/g, ' ')); });
                 }));
             }
@@ -406,7 +406,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         return transport(request, function (err, response) {
             var accType = request.headers['Accept'],
                 resType = response && response.headers['Content-Type'],
-                decoder = (request.responseType === 'text') && (TYPES[accType] || TYPES[resType] || [])[1];
+                decoder = (TYPES[accType] || TYPES[resType] || [])[1];
             var data = response && response.data,
                 // NOTE: I can only find one precedent (Symfony web framework) for this header extension
                 meta = response && fermata._extend({'X-Status-Code':response.status}, response.headers);
