@@ -68,12 +68,14 @@ var fermata;
             // NOTE: see also https://issues.apache.org/jira/browse/COUCHDB-257 (shouldn't have been closed?!)
             db = db({nocache:Math.random()});
             var responseType = (feedType === 'continuous') ? 'stream' : null,
+                // NOTE: CouchDB doesn't really handle this Content-Type, but it does avoid https://issues.apache.org/jira/browse/COUCHDB-2562 in our case
+                headers = (feedType === 'continuous') ? {'Accept': "application/x-ldjson"} : null,
                 query = (currentSeq === 'now') ? {feed:feedType, since:'now'} : {feed:feedType, $since:currentSeq};
-            activeRequest = db('_changes', query).get(responseType, null, null, function (e,d) {
+            activeRequest = db('_changes', query).get(responseType, headers, null, function (e,d) {
                 activeRequest = (responseType === 'stream') ? activeRequest : null;
                 if (cancelled) return;
                 else if (e) {
-                    if (console && console.warn) console.warn("Couldn't fetch CouchDB _changes feed, trying again in ", backoff, " milliseconds.", e, d);
+                    if (console && console.warn) console.warn("Couldn't fetch CouchDB _changes feed, trying again in ", backoff, " milliseconds.", e, (responseType === 'stream') ? '<stream>' : d);
                     setTimeout(poll, backoff);
                     if (!interval) backoff *= 2;
                 } else {
