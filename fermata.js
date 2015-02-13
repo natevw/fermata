@@ -412,6 +412,8 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                 meta = response && fermata._extend({'X-Status-Code':response.status}, response.headers);
             if (response && response.status === 204) {     // handle No-Content responses, HT https://github.com/natevw/fermata/pull/35
                 data = null;
+            } else if (request.responseType === 'stream') {
+                // no-op. (theoretically a decoder might handle, but none currently do)
             } else if (decoder) {
                 try {
                     data = decoder.call(response, data);
