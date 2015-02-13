@@ -194,8 +194,8 @@ fermata._xhrTransport = function (request, callback) {
     var xhr = new XMLHttpRequest(),
         url = fermata._stringForURL(request);
     
-    xhr.responseType = request.responseType;
     xhr.open(request.method, url, true);
+    xhr.responseType = request.responseType;
     Object.keys(request.headers).forEach(function (k) {
         xhr.setRequestHeader(k, request.headers[k]);
     });
