@@ -310,10 +310,14 @@ As of Fermata v0.9, this plugin API may still need some improvement (=change) bu
 * 0.11 - Clean up some loose ends and lingering questions (streams/binary, plugin chaining)
 * 1.0 - [Your feedback needed](https://github.com/natevw/fermata/issues) before the API is finalized!
 
-## License ##
+## MIT License ##
 
-Written by [Nathan Vander Wilt](http://twitter.com/natevw).
-Copyright © 2011 &yet, LLC. Released under the terms of the MIT License:
+Fermata: a succinct REST client.
+Written by [Nathan Vander Wilt](http://github.com/natevw).
+Copyright © 2011 &yet, LLC.
+Copyright © 2012–2015 Nathan Vander Wilt.
+
+Released under the terms of the MIT License:
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

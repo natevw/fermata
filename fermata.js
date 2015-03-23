@@ -3,7 +3,7 @@ Fermata: a succinct REST client.
 Written by Nathan Vander Wilt (nate@calftrail.com).
 
 Copyright © 2011 &yet, LLC.
-Copyright © 2012–2013 Nathan Vander Wilt.
+Copyright © 2012–2015 Nathan Vander Wilt.
 
 Released under the terms of the MIT License:
 
@@ -286,7 +286,7 @@ if (typeof exports !== 'undefined') {
 }
 
 if (typeof window === 'undefined') {
-    fermata.registerPlugin('oauth', require("./oauth").init(fermata));
+    fermata.registerPlugin('oauth', require("./plugins/oauth").init(fermata));
 }
 
 if (typeof process === 'object' && typeof process.versions === 'object' && 'http_parser' in process.versions) {
