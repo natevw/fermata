@@ -75,7 +75,19 @@ fermata._makeNativeURL = function (transport, url) {
 };
 
 fermata._wrapTheWrapper = function (impl) {
-    return (Proxy || fermata._nodeProxy) ? (Proxy) ? Proxy.createFunction({
+    if (fermata._nodeProxy) return fermata._nodeProxy.createFunction({
+        // NOTE: node-proxy has a different set of required handlers than harmony:proxies proposal
+        'getOwnPropertyDescriptor': function (name) {},
+        'enumerate': function () { return []; },
+        'delete': function () { return false; },
+        'fix': function () {},
+        'set': function (target, name, val) {},
+        
+        'get': function (target, name) {
+            return impl(name);
+        }
+    }, impl);
+    else if (Proxy && Proxy.createFunction) return Proxy.createFunction({
         // fundamental trap stubs - http://wiki.ecmascript.org/doku.php?id=harmony:proxies
         'getOwnPropertyDescriptor': function (name) {},
         'getPropertyDescriptor': function (name) {},
@@ -88,18 +100,13 @@ fermata._wrapTheWrapper = function (impl) {
         'get': function (target, name) {
             return impl(name);
         }
-    }, impl) : fermata._nodeProxy.createFunction({
-        // NOTE: node-proxy has a different set of required handlers than harmony:proxies proposal
-        'getOwnPropertyDescriptor': function (name) {},
-        'enumerate': function () { return []; },
-        'delete': function () { return false; },
-        'fix': function () {},
-        'set': function (target, name, val) {},
-        
+    }, impl);
+    else if (Proxy) return new Proxy(impl, {
         'get': function (target, name) {
-            return impl(name);
-        }
-    }, impl) : fermata._extend(impl, {
+              return impl(name);
+          }
+    });
+    else return fermata._extend(impl, {
         'get': function () { return impl('get').apply(null, arguments); },
         'put': function () { return impl('put').apply(null, arguments); },
         'post': function () { return impl('post').apply(null, arguments); },
