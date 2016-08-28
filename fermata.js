@@ -188,10 +188,18 @@ fermata._nodeTransport = function (request, callback) {
     return req;
 };
 
+fermata._isObject = function(value) {
+    return Object.prototype.toString.call(value) === '[object Object]'
+};
+
 fermata._xhrTransport = function (request, callback) {
     var xhr = new XMLHttpRequest(),
         url = fermata._stringForURL(request);
-    
+    var props = request.properties;
+    props = fermata._isObject(props) ? props || {};
+    for(var i in props) {
+        xhr[i] = props[i];
+    }
     xhr.open(request.method, url, true);
     Object.keys(request.headers).forEach(function (k) {
         xhr.setRequestHeader(k, request.headers[k]);
