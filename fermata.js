@@ -153,14 +153,16 @@ fermata._nodeTransport = function (request, callback) {
     }
     
     var http = (url_parts.protocol === 'https:') ? require('https') : require('http');
-    var req = http.request({
+    var opts = fermata._extend({}, request.options.node, {
         host: url_parts.hostname,
         port: url_parts.port,
         method: request.method,
         path: url_parts.pathname + (url_parts.search || ''),
         headers: headers,
-        agent: http.globalAgent         // HACK: allow users some control over connections via e.g. `require('https').globalAgent = new CustomAgent()`
+        // [backwards compatibility] HACK: allow users some control over connections via e.g. `require('https').globalAgent = new CustomAgent()`
+        agent: (request.options.node && request.options.node.agent) || http.globalAgent
     });
+    var req = http.request(opts);
     if (request.data instanceof require('stream').Readable) {
         request.data.pipe(req);
     } else if (request.data) {
@@ -205,10 +207,14 @@ fermata._nodeTransport = function (request, callback) {
 
 fermata._xhrTransport = function (request, callback) {
     var xhr = new XMLHttpRequest(),
-        url = fermata._stringForURL(request);
+        url = fermata._stringForURL(request),
+        opts = request.options.xhr || {};
     
     xhr.open(request.method, url, true);
     xhr.responseType = request.options.responseType || 'text';    // 'json', 'document', 'blob', 'arraybuffer'
+    Object.keys(opts).forEach(function (k) {
+      xhr[k] = opts[k];
+    });
     Object.keys(request.headers).forEach(function (k) {
         xhr.setRequestHeader(k, request.headers[k]);
     });
