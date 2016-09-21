@@ -67,7 +67,7 @@ fermata._makeNativeURL = function (transport, url) {
                 method = url.path.pop().toUpperCase();
             if (method === 'DEL') method = 'DELETE';
             if (typeof options === 'string') {
-              // TODO: add a deprecation warning for this
+              if (console && console.warn) console.warn("Using deprecated API: use an options object to set `{responseType:'"+options+"'}` instead of passing raw string.");
               options = {responseType:options};
             }
             return transport({
