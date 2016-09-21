@@ -75,7 +75,7 @@ fermata._makeNativeURL = function (transport, url) {
                 options:options, headers:headers, data:data
             }, callback);
         } else {
-            var query2 = (lastArg === 'object') ? fermata._extend(fermata._extend({}, url.query), args.pop()) : url.query,
+            var query2 = (lastArg === 'object') ? fermata._extend({}, url.query, args.pop()) : url.query,
                 path2 = (args.length) ? url.path.concat(args) : url.path;
             return fermata._makeNativeURL(transport, {base:url.base, path:path2, query:query2});
         }
@@ -278,11 +278,14 @@ fermata._normalize = function (headers) {
     return headers_norm;
 };
 
-fermata._extend = function (target, source) {
-    Object.keys(source).forEach(function (key) {
-        target[key] = source[key];
+// copied from https://github.com/natevw/xok/blob/9f962f8518042ac60bd699f6f44b9618451fa385/index.js
+fermata._extend = (Object.assign) ? Object.assign : function (obj) {
+    Array.prototype.slice.call(arguments, 1).forEach(function (ext) {
+        if (ext) Object.keys(ext).forEach(function (key) {
+            obj[key] = ext[key];
+        });
     });
-    return target;
+    return obj;
 };
 
 fermata._typeof2 = function (o) {
