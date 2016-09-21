@@ -1,8 +1,10 @@
-var Proxy;
+var Proxy = function () { if ('Proxy' in this) return this.Proxy; }();
 if (typeof window === 'undefined') {
     f = require("./fermata.js");
     assert = require('assert');
-    Proxy = true;
+    if (!Proxy) try {
+        Proxy = require('node-proxy');
+    } catch (e) {}
 } else {
     f = fermata;
     assert = {

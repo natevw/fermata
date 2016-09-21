@@ -3,7 +3,7 @@ Fermata: a succinct REST client.
 Written by Nathan Vander Wilt (nate@calftrail.com).
 
 Copyright © 2011 &yet, LLC.
-Copyright © 2012–2013 Nathan Vander Wilt.
+Copyright © 2012–2015 Nathan Vander Wilt.
 
 Released under the terms of the MIT License:
 
@@ -63,11 +63,19 @@ fermata._makeNativeURL = function (transport, url) {
             var callback = args.pop(),
                 data = args.pop(),
                 headers = fermata._normalize(args.pop() || {}),
+                options = args.pop() || {},
                 method = url.path.pop().toUpperCase();
             if (method === 'DEL') method = 'DELETE';
-            return transport({base:url.base, method:method, path:url.path, query:url.query, headers:headers, data:data}, callback);
+            if (typeof options === 'string') {
+              if (console && console.warn) console.warn("Using deprecated API: use an options object to set `{responseType:'"+options+"'}` instead of passing raw string.");
+              options = {responseType:options};
+            }
+            return transport({
+                base:url.base, method:method, path:url.path, query:url.query,
+                options:options, headers:headers, data:data
+            }, callback);
         } else {
-            var query2 = (lastArg === 'object') ? fermata._extend(fermata._extend({}, url.query), args.pop()) : url.query,
+            var query2 = (lastArg === 'object') ? fermata._extend({}, url.query, args.pop()) : url.query,
                 path2 = (args.length) ? url.path.concat(args) : url.path;
             return fermata._makeNativeURL(transport, {base:url.base, path:path2, query:query2});
         }
@@ -119,7 +127,10 @@ fermata._nodeTransport = function (request, callback) {
     var url = fermata._stringForURL(request),
         url_parts = require('url').parse(url),
         headers = {},
-        data = null, textResponse = true;
+        data = null, stream = null,
+        textResponse = true, streamResponse = false;
+    
+    request.options.responseType || (request.options.responseType = 'text');    // 'text', 'stream', 'buffer'
     
     if (url_parts.auth) {
         // TODO: this is a workaround for https://github.com/joyent/node/issues/2736 and should be removed or hardcoded per its resolution
@@ -130,40 +141,46 @@ fermata._nodeTransport = function (request, callback) {
     }
     fermata._extend(headers, request.headers);
     
-    if (request.data && request.data.length && request.method === 'GET' || request.method === 'HEAD') {
+    if (request.data && request.method === 'GET' || request.method === 'HEAD') {
         /* XHR ignores data on these requests, so we'll standardize on that behaviour to keep things consistent. Conveniently, this
            avoids https://github.com/joyent/node/issues/989 in situations like https://issues.apache.org/jira/browse/COUCHDB-1146 */
         if (console && console.warn) console.warn("Ignoring data passed to GET or HEAD request.");
-    } else if (typeof(request.data) === 'string') {
-        data = new Buffer(request.data, 'utf8');
+        request.data = null;
+    } else if (typeof request.data === 'string') {
+        request.data = new Buffer(request.data, 'utf8');
         // TODO: follow XHR algorithm for charset replacement if Content-Type already set
         headers['Content-Type'] || (headers['Content-Type'] = "text/plain;charset=UTF-8");
-    } else if (request.data) {
-        textResponse = false;
-        data = new Buffer(request.data);
     }
     
     var http = (url_parts.protocol === 'https:') ? require('https') : require('http');
-    var req = http.request({
+    var opts = fermata._extend({}, request.options.node, {
         host: url_parts.hostname,
         port: url_parts.port,
         method: request.method,
         path: url_parts.pathname + (url_parts.search || ''),
         headers: headers,
-        agent: http.globalAgent         // HACK: allow users some control over connections via e.g. `require('https').globalAgent = new CustomAgent()`
+        // [backwards compatibility] HACK: allow users some control over connections via e.g. `require('https').globalAgent = new CustomAgent()`
+        agent: (request.options.node && request.options.node.agent) || http.globalAgent
     });
-    if (data) {
-        req.setHeader('Content-Length', data.length);
-        req.write(data);
+    var req = http.request(opts);
+    if (fermata._isStream(request.data)) {
+        request.data.pipe(req);
+    } else if (request.data) {
+        req.setHeader('Content-Length', request.data.length);
+        req.end(request.data);
     } else {
         req.setHeader('Content-Length', 0);
+        req.end();
     }
-    req.end();
     
     req.on('error', function (e) {
         callback(e, null);
     });
-    req.on('response', function (res) {
+    
+    if (request.options.responseType === 'stream') req.on('response', function (res) {
+        callback(null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:res});
+    });
+    else req.on('response', function (res) {
         var responseChunks = [],
             responseLength = 0;
         res.on('data', function (chunk) {
@@ -172,7 +189,7 @@ fermata._nodeTransport = function (request, callback) {
         });
         function finish(err) {
             var responseData = Buffer.concat(responseChunks, responseLength);
-            if (textResponse) {
+            if (request.options.responseType === 'text') {
                 // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
@@ -190,9 +207,14 @@ fermata._nodeTransport = function (request, callback) {
 
 fermata._xhrTransport = function (request, callback) {
     var xhr = new XMLHttpRequest(),
-        url = fermata._stringForURL(request);
+        url = fermata._stringForURL(request),
+        opts = request.options.xhr || {};
     
     xhr.open(request.method, url, true);
+    xhr.responseType = request.options.responseType || 'text';    // 'json', 'document', 'blob', 'arraybuffer'
+    Object.keys(opts).forEach(function (k) {
+      xhr[k] = opts[k];
+    });
     Object.keys(request.headers).forEach(function (k) {
         xhr.setRequestHeader(k, request.headers[k]);
     });
@@ -206,8 +228,7 @@ fermata._xhrTransport = function (request, callback) {
                     l = l.split("\u003A\u0020");
                     responseHeaders[l[0]] = l.slice(1).join("\u003A\u0020");
                 });
-                // TODO: when XHR2 settles responseBody vs. response, handle "bytes" siteReq.responseType
-                callback(null, {status:this.status, headers:fermata._normalize(responseHeaders), data:this.responseText});
+                callback(null, {status:this.status, headers:fermata._normalize(responseHeaders), data:this.response||this.responseText});
             } else {
                 callback(Error("XHR request failed"), null);
             }
@@ -263,27 +284,35 @@ fermata._normalize = function (headers) {
     return headers_norm;
 };
 
-fermata._extend = function (target, source) {
-    Object.keys(source).forEach(function (key) {
-        target[key] = source[key];
+// copied from https://github.com/natevw/xok/blob/9f962f8518042ac60bd699f6f44b9618451fa385/index.js
+fermata._extend = (Object.assign) ? Object.assign : function (obj) {
+    Array.prototype.slice.call(arguments, 1).forEach(function (ext) {
+        if (ext) Object.keys(ext).forEach(function (key) {
+            obj[key] = ext[key];
+        });
     });
-    return target;
+    return obj;
 };
 
 fermata._typeof2 = function (o) {
     return (Array.isArray(o)) ? 'array' : typeof(o);
 };
 
-
-if (typeof window === 'undefined') {
+if (typeof exports !== 'undefined') {
     fermata._useExports = true;
-    fermata._transport = fermata._nodeTransport;
-    fermata.registerPlugin('oauth', require("./oauth").init(fermata));
-    if (!Proxy) {
-        fermata._nodeProxy = require('node-proxy');
-    }
     exports.registerPlugin = fermata.registerPlugin;
     exports.plugins = fermata.plugins;
+    if (!Proxy) try {
+        fermata._nodeProxy = require('node-proxy');
+    } catch (e) {}
+}
+
+if (typeof window === 'undefined') {
+    fermata.registerPlugin('oauth', require("./plugins/oauth").init(fermata));
+}
+
+if (typeof process === 'object' && typeof process.versions === 'object' && 'http_parser' in process.versions) {
+    fermata._transport = fermata._nodeTransport;
 } else {
     fermata._transport = fermata._xhrTransport;
 }
@@ -357,6 +386,10 @@ fermata._xhrMultipartEncode = function (data) {
     return form;
 };
 
+fermata._isStream = function (data) {
+  return (fermata._transport === fermata._nodeTransport) ? data instanceof require('stream').Readable : false;
+};
+
 fermata.registerPlugin('autoConvert', function (transport, defaultType) {
     var TYPES = {
         "text/plain" : [
@@ -375,7 +408,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                 }).join("&");
             },
             function (data) {
-                return fermata._unflatten(data.split("&").map(function (kv) {
+                return fermata._unflatten(data.toString().split("&").map(function (kv) {
                     return kv.split("=").map(function (c) { return decodeURIComponent(c.replace(/\+/g, ' ')); });
                 }));
             }
@@ -393,7 +426,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         }
         var reqType = request.headers['Content-Type'],
             encoder = (TYPES[reqType] || [])[0];
-        if (encoder) {
+        if (encoder && !fermata._isStream(request.data)) {
             request.data = request.data && encoder.call(request, request.data);
         }
         return transport(request, function (err, response) {
@@ -405,6 +438,8 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                 meta = response && fermata._extend({'X-Status-Code':response.status}, response.headers);
             if (response && response.status === 204) {     // handle No-Content responses, HT https://github.com/natevw/fermata/pull/35
                 data = null;
+            } else if (request.options.responseType === 'stream') {
+                // no-op. (theoretically a decoder might handle, but none currently do)
             } else if (decoder) {
                 try {
                     data = decoder.call(response, data);
