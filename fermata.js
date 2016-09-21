@@ -163,7 +163,7 @@ fermata._nodeTransport = function (request, callback) {
         agent: (request.options.node && request.options.node.agent) || http.globalAgent
     });
     var req = http.request(opts);
-    if (request.data instanceof require('stream').Readable) {
+    if (fermata._isStream(request.data)) {
         request.data.pipe(req);
     } else if (request.data) {
         req.setHeader('Content-Length', request.data.length);
@@ -386,6 +386,10 @@ fermata._xhrMultipartEncode = function (data) {
     return form;
 };
 
+fermata._isStream = function (data) {
+  return (fermata._transport === fermata._nodeTransport) ? data instanceof require('stream').Readable : false;
+};
+
 fermata.registerPlugin('autoConvert', function (transport, defaultType) {
     var TYPES = {
         "text/plain" : [
@@ -422,7 +426,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
         }
         var reqType = request.headers['Content-Type'],
             encoder = (TYPES[reqType] || [])[0];
-        if (encoder) {
+        if (encoder && !fermata._isStream(request.data)) {
             request.data = request.data && encoder.call(request, request.data);
         }
         return transport(request, function (err, response) {
