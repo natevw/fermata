@@ -63,12 +63,16 @@ fermata._makeNativeURL = function (transport, url) {
             var callback = args.pop(),
                 data = args.pop(),
                 headers = fermata._normalize(args.pop() || {}),
-                responseType = args.pop() || 'text',      // 'stream', 'buffer' / 'json', 'document', 'blob', 'arraybuffer'
+                options = args.pop() || {},
                 method = url.path.pop().toUpperCase();
             if (method === 'DEL') method = 'DELETE';
+            if (typeof options === 'string') {
+              // TODO: add a deprecation warning for this
+              options = {responseType:options};
+            }
             return transport({
                 base:url.base, method:method, path:url.path, query:url.query,
-                responseType:responseType, headers:headers, data:data
+                options:options, headers:headers, data:data
             }, callback);
         } else {
             var query2 = (lastArg === 'object') ? fermata._extend(fermata._extend({}, url.query), args.pop()) : url.query,
@@ -126,6 +130,8 @@ fermata._nodeTransport = function (request, callback) {
         data = null, stream = null,
         textResponse = true, streamResponse = false;
     
+    request.options.responseType || (request.options.responseType = 'text');    // 'text', 'stream', 'buffer'
+    
     if (url_parts.auth) {
         // TODO: this is a workaround for https://github.com/joyent/node/issues/2736 and should be removed or hardcoded per its resolution
         if (require('url').parse("http//either%2for@example").auth !== "either/or") {
@@ -169,7 +175,7 @@ fermata._nodeTransport = function (request, callback) {
         callback(e, null);
     });
     
-    if (request.responseType === 'stream') req.on('response', function (res) {
+    if (request.options.responseType === 'stream') req.on('response', function (res) {
         callback(null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:res});
     });
     else req.on('response', function (res) {
@@ -181,7 +187,7 @@ fermata._nodeTransport = function (request, callback) {
         });
         function finish(err) {
             var responseData = Buffer.concat(responseChunks, responseLength);
-            if (request.responseType === 'text') {
+            if (request.options.responseType === 'text') {
                 // TODO: follow XHR charset algorithm via https://github.com/bnoordhuis/node-iconv
                 responseData = responseData.toString('utf8');
             }
@@ -202,7 +208,7 @@ fermata._xhrTransport = function (request, callback) {
         url = fermata._stringForURL(request);
     
     xhr.open(request.method, url, true);
-    xhr.responseType = request.responseType;
+    xhr.responseType = request.options.responseType || 'text';    // 'json', 'document', 'blob', 'arraybuffer'
     Object.keys(request.headers).forEach(function (k) {
         xhr.setRequestHeader(k, request.headers[k]);
     });
@@ -419,7 +425,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
                 meta = response && fermata._extend({'X-Status-Code':response.status}, response.headers);
             if (response && response.status === 204) {     // handle No-Content responses, HT https://github.com/natevw/fermata/pull/35
                 data = null;
-            } else if (request.responseType === 'stream') {
+            } else if (request.options.responseType === 'stream') {
                 // no-op. (theoretically a decoder might handle, but none currently do)
             } else if (decoder) {
                 try {

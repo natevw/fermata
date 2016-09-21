@@ -192,7 +192,7 @@ Take a look at the detailed documentation below for tips on publishing plugins t
 
 * `fermata.json(base_url)` - create a URL proxy object for base_url using the built-in 'json' plugin
 * `()` - absolute URL as string
-* `.method([headers, [data,]] function)` - request targetting callback, returns native [XHR](http://www.w3.org/TR/XMLHttpRequest/#interface-xmlhttprequest)/[http.ClientRequest](http://nodejs.org/api/http.html#http_class_http_clientrequest) object including an `.abort()` method
+* `.method([options, [headers, [data,]]] function)` - request targetting callback, returns native [XHR](http://www.w3.org/TR/XMLHttpRequest/#interface-xmlhttprequest)/[http.ClientRequest](http://nodejs.org/api/http.html#http_class_http_clientrequest) object including an `.abort()` method
 * `(string/array...[, object])` - general extension syntax, each type documented below
 * `(object)` - override query parameters (see $key:value details below)
 * `(array)` - extend URL with components (without encoding)
@@ -274,7 +274,7 @@ Fermata plugins intended for cross-platform use should generally try to follow t
         var plugin = function (transport, baseURL) {                // A plugin is a setup function which receives a base "raw" HTTP transport, followed by each argument supplied to the fermata.plugin call.
             this.base = baseURL;				    // ...this setup function can set default base/path/query items, then must return the (typically wrapped) request transport function.
             transport = transport.using('statusCheck').using('autoConvert', "application/json");		// any registered plugin may be used
-            return function (request, callback) {                   // request = {base, method, path, query, headers, data}
+            return function (request, callback) {                   // request = {base, method, path, query, options, headers, data}
                 request.path[request.path.length - 1] += ".json";   // NOTE: automatically adding an extension like this breaks the URL string Fermata automatically returns on `()` calls, and so this pattern will likely need to be replaced somehow before v1.0
                 transport(request, function (err, response) {       // response = {status, headers, data}
                     callback(err, response);
