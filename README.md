@@ -304,10 +304,11 @@ As of Fermata v0.9, this plugin API may still need some improvement (=change) bu
 * 0.8 - Form-based file uploads
 * 0.9 — Expose native request, better errors
 * 0.10 — Auto-convert improvements (headers, 204)
+* 0.11 — Streams/options support, split out plugins, compatibility improvements
 
 ## Roadmap ##
 
-* 0.11 - Clean up some loose ends and lingering questions (streams/binary, plugin chaining)
+* 0.12 - Clean up some loose ends and lingering questions (composable plugins? promises?)
 * 1.0 - [Your feedback needed](https://github.com/natevw/fermata/issues) before the API is finalized!
 
 ## MIT License ##
