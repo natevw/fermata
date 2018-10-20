@@ -196,11 +196,6 @@ fermata._nodeTransport = function (request, callback) {
             callback(err || null, {status:res.statusCode, headers:fermata._normalize(res.headers), data:responseData});
         }
         res.on('end', finish);
-        // TODO: is this handler correct?
-        // (may be a confusion between event on http.ServerResponse vs. http.IncomingMessage)
-        res.on('close', function () {
-            finish(new Error("Connection dropped."));
-        });
     });
     return req;
 };
