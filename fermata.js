@@ -126,9 +126,7 @@ fermata._wrapTheWrapper = function (impl) {
 fermata._nodeTransport = function (request, callback) {
     var url = fermata._stringForURL(request),
         url_parts = require('url').parse(url),
-        headers = {},
-        data = null, stream = null,
-        textResponse = true, streamResponse = false;
+        headers = {};
     
     request.options.responseType || (request.options.responseType = 'text');    // 'text', 'stream', 'buffer'
     
