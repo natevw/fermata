@@ -461,7 +461,7 @@ fermata.registerPlugin('autoConvert', function (transport, defaultType) {
 
 fermata.registerPlugin('json', function (transport, baseURL) {
     this.base = baseURL;
-    return transport.using('statusCheck').using('autoConvert', "application/json");
+    return transport.using('timeout').using('statusCheck').using('autoConvert', "application/json");
 });
 
 
