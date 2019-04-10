@@ -328,6 +328,20 @@ fermata.registerPlugin('raw', function (transport, config) {
     return transport;
 });
 
+fermata.registerPlugin('timeout', function (transport, duration) {
+    return function (request, callback) {
+        var _req, watchdog = setTimeout(function () {
+            watchdog = null;            // signals logic below
+            _req.abort();
+        }, duration || 60e3);
+        return _req = transport(request, function (err, response) {
+            if (!watchdog) err = Error("Request timed out.");
+            else clearTimeout(watchdog);
+            callback(err, response);
+        });
+    };
+});
+
 fermata.registerPlugin('statusCheck', function (transport) {
     return function (request, callback) {
         return transport(request, function (err, response) {
