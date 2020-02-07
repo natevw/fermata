@@ -304,7 +304,7 @@ if (typeof window === 'undefined') {
     fermata.registerPlugin('oauth', require("./plugins/oauth").init(fermata));
 }
 
-if (typeof process === 'object' && typeof process.versions === 'object' && 'http_parser' in process.versions) {
+if (typeof XMLHttpRequest === 'undefined') {
     fermata._transport = fermata._nodeTransport;
 } else {
     fermata._transport = fermata._xhrTransport;
