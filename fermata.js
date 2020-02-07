@@ -26,7 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-var Proxy;    // simplify usage later (harmless if already in global)
+var Proxy = (function () { return this.Proxy; })();
 
 var fermata = {plugins:{}};
 
