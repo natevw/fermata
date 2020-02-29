@@ -1,8 +1,12 @@
-var Proxy = function () { if ('Proxy' in this) return this.Proxy; }();
+"use strict";
+
+var f, assert, u;
+var haveProxy = (typeof Proxy === 'function');
+
 if (typeof window === 'undefined') {
     f = require("./fermata.js");
     assert = require('assert');
-    if (!Proxy) try {
+    if (!haveProxy) try {
         Proxy = require('node-proxy');
     } catch (e) {}
 } else {
@@ -21,9 +25,9 @@ if (typeof window === 'undefined') {
 }
 
 u = f.raw({base:"http://example.com"});
-if (Proxy) assert.equal(u(), "http://example.com");
-if (Proxy) assert.equal(u.folder(), "http://example.com/folder");
-if (Proxy) assert.equal(u.folder1.folder2(), "http://example.com/folder1/folder2");
+if (haveProxy) assert.equal(u(), "http://example.com");
+if (haveProxy) assert.equal(u.folder(), "http://example.com/folder");
+if (haveProxy) assert.equal(u.folder1.folder2(), "http://example.com/folder1/folder2");
 
 u = f.raw({base:"http://localhost:5984/db"});
 assert.equal(u('_design')('app')('_view')('by_date')(), "http://localhost:5984/db/_design/app/_view/by_date");
@@ -38,9 +42,9 @@ assert.equal(u({$key:[1,2,3]})(), "dotcom?key=%5B1%2C2%2C3%5D");
 assert.equal(u({$$opt:[1,'two',3]})(), "dotcom?%24opt=1&%24opt=two&%24opt=3");
 
 u = f.raw({base:"site"});
-if (Proxy) assert.equal(u.path.subpath({q1:"search", q2:"term"})(), "site/path/subpath?q1=search&q2=term");
-if (Proxy) assert.equal(u.path({q1:"search", q2:"term"}).subpath(), "site/path/subpath?q1=search&q2=term");
-if (Proxy) assert.equal(u.path({q1:"old", q2:"term"}).subpath({q1:"search"})(), "site/path/subpath?q1=search&q2=term");
+if (haveProxy) assert.equal(u.path.subpath({q1:"search", q2:"term"})(), "site/path/subpath?q1=search&q2=term");
+if (haveProxy) assert.equal(u.path({q1:"search", q2:"term"}).subpath(), "site/path/subpath?q1=search&q2=term");
+if (haveProxy) assert.equal(u.path({q1:"old", q2:"term"}).subpath({q1:"search"})(), "site/path/subpath?q1=search&q2=term");
 
 u = f.raw({base:""});
 assert.equal(u('abc', 'def', {q:123})(), "/abc/def?q=123");
@@ -68,4 +72,4 @@ f.json("http://ipcalf.com").get(function (e, d) {
     assert.ok(d);
 });
 
-assert.ok(Proxy, "no proxy support in this browser, tested fallback methods instead [informational]");
+assert.ok(haveProxy, "no proxy support in this browser, tested fallback methods instead [informational]");

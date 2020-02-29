@@ -26,9 +26,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-var Proxy = (function () { return this.Proxy; })();
-
 var fermata = {plugins:{}};
+
+fermata._builtinProxy = (typeof Proxy === 'function');
 
 fermata.registerPlugin = function (name, plugin) {
     fermata.plugins[name] = plugin;
@@ -95,7 +95,7 @@ fermata._wrapTheWrapper = function (impl) {
             return impl(name);
         }
     }, impl);
-    else if (Proxy && Proxy.createFunction) return Proxy.createFunction({
+    else if (fermata._builtinProxy && Proxy.createFunction) return Proxy.createFunction({
         // fundamental trap stubs - http://wiki.ecmascript.org/doku.php?id=harmony:proxies
         'getOwnPropertyDescriptor': function (name) {},
         'getPropertyDescriptor': function (name) {},
@@ -109,7 +109,7 @@ fermata._wrapTheWrapper = function (impl) {
             return impl(name);
         }
     }, impl);
-    else if (Proxy) return new Proxy(impl, {
+    else if (fermata._builtinProxy) return new Proxy(impl, {
         'get': function (target, name) {
               return impl(name);
           }
@@ -295,7 +295,7 @@ if (typeof exports !== 'undefined') {
     fermata._useExports = true;
     exports.registerPlugin = fermata.registerPlugin;
     exports.plugins = fermata.plugins;
-    if (!Proxy) try {
+    if (!fermata._builtinProxy) try {
         fermata._nodeProxy = require('node-proxy');
     } catch (e) {}
 }
