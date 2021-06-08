@@ -146,40 +146,26 @@ Plugins give us the best of both worlds. Fermata's one magical native API, with 
 
 There's a tiny bit of setup to use plugins from node.js, since Fermata can't *actually* read your mind:
 
-    var f = require('fermata');
-    require('fermata-chargify').init(f, 'billing');     // installs Chargify plugin into our Fermata module, optionally with a custom name.
+    var f = require('fermata'),
+        _fc = require('fermata-chargify');
+    f.registerPlugin('billing', _fc);        // installs Chargify plugin into our Fermata module, in this case with a less-typical name
     
     f.billing(site_name, api_key);
 
 In the browser, just include any plugins after the script tag for Fermata, and each plugin will be accessible through its default name.
 
-Since such a "fermata-chargify" plugin hasn't been published yet, we can just register its implementation directly:
+If such a "fermata-chargify" plugin hadn't been published, we could just register an implementation directly:
 
     fermata.registerPlugin('myChargify', function (transport, name, key) {
-        // setup our custom base URL
-        this.base = "http://" + key + ":x@" + name + ".chargify.com";
-
-        return function (request, callback) {
-            // we can make usage much cleaner by automatically appending this extension
-            request.path[request.path.length-1] += ".json";
-            
-            // the rest is "borrowed" from the built-in JSON plugin
-            request.headers['Accept'] = "application/json";
-            request.headers['Content-Type'] = "application/json";
-            request.data = JSON.stringify(request.data);
-            return transport(request, function (err, response) {
-                if (!err) {
-                    if (response.status.toFixed()[0] !== '2') { err = Error("Bad status code from server: " + response.status); }
-                    try {
-                        response = JSON.parse(response.data);
-                    } catch (e) { err = e; }
-                }
-                callback(err, response);
-            });
+        this.base = "https://" + api_key + ":x@" + site_name + ".chargify.com";
+        transport = transport.using('statusCheck').using('autoConvert', "application/json");
+        return function (req, callback) {
+            req.path[req.path.length - 1] += ".json";
+            transport(req, callback);
         };
     });
 
-Plugin support is still young, and it might be nice to make it easier for plugins to build off of e.g. common JSON, OAuth, etc. foundations in the future.
+Note how `transport` can be extended using other built-in (and/or known-to-be-registered) plugins like `'statusCheck'` and `'autoConvert'`.
 Take a look at the detailed documentation below for tips on publishing plugins that can be easily used from both node.js and the browser.
 
 
